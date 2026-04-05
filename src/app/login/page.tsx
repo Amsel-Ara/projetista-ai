@@ -25,12 +25,7 @@ export default function LoginPage() {
       return
     }
 
-    const role = data.user?.user_metadata?.role
-    if (role === 'team_member' || role === 'admin') {
-      router.push('/admin')
-    } else {
-      router.push('/portal')
-    }
+    router.push('/app/dashboard')
   }
 
   return (
