@@ -281,12 +281,9 @@ export default function ApplicationDetailPage() {
                   key={i}
                   style={{
                     borderLeft: '3px solid var(--brand-orange)',
-                    paddingLeft: '12px',
                     background: 'var(--color-surface-3)',
                     borderRadius: '0 6px 6px 0',
-                    padding: '10px 12px',
-                    paddingLeft: '12px',
-                    borderLeft: '3px solid var(--brand-orange)',
+                    padding: '10px 12px 10px 12px',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', alignItems: 'center' }}>
