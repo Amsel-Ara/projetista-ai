@@ -53,6 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside style={{
         width: '220px',
         background: 'var(--color-sidebar)',
+        borderRight: '1px solid var(--color-border)',
         display: 'flex',
         flexDirection: 'column',
         position: 'fixed',
@@ -63,13 +64,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }}>
 
         {/* Logo */}
-        <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid var(--color-border)' }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '18px', color: 'var(--brand-orange)', letterSpacing: '-0.5px' }}>
-              Projetista.Ai
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '18px', color: 'var(--color-text-primary)', letterSpacing: '-0.5px' }}>
+              Projetista<span style={{ color: 'var(--brand-orange)' }}>.Ai</span>
             </div>
           </Link>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '3px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', marginTop: '3px', letterSpacing: '1px', textTransform: 'uppercase', opacity: 0.5 }}>
             Plataforma
           </div>
         </div>
@@ -87,10 +88,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   padding: '9px 12px',
                   borderRadius: '8px',
                   /* Active: orange left border + subtle orange bg; Inactive: transparent */
-                  background: active ? 'rgba(185,91,55,0.12)' : 'transparent',
+                  background: active ? 'var(--brand-orange-bg)' : 'transparent',
                   borderLeft: active ? '3px solid var(--brand-orange)' : '3px solid transparent',
                   paddingLeft: '10px',
-                  color: active ? 'var(--brand-orange)' : 'rgba(255,255,255,0.5)',
+                  color: active ? 'var(--brand-orange)' : 'var(--color-text-secondary)',
                   fontWeight: active ? 600 : 400,
                   fontSize: '14px',
                   transition: 'all 0.15s',
@@ -105,7 +106,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User footer */}
-        <div style={{ padding: '12px 10px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ padding: '12px 10px', borderTop: '1px solid var(--color-border)' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -132,10 +133,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               AA
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 Amsel Ara
               </div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
                 Administrador
               </div>
             </div>

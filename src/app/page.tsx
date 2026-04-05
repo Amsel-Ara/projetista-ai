@@ -7,20 +7,21 @@ const DEADLINE = new Date('2026-06-30T23:59:59-03:00')
 function pad(n: number) { return n < 10 ? '0' + n : String(n) }
 
 function useCountdown() {
-  const [time, setTime] = useState({ days: 0, hours: '00', mins: '00', expired: false })
+  const [time, setTime] = useState({ days: 0, hours: '00', mins: '00', secs: '00', expired: false })
   useEffect(() => {
     function calc() {
       const diff = DEADLINE.getTime() - Date.now()
-      if (diff <= 0) { setTime({ days: 0, hours: '00', mins: '00', expired: true }); return }
+      if (diff <= 0) { setTime({ days: 0, hours: '00', mins: '00', secs: '00', expired: true }); return }
       setTime({
         days:    Math.floor(diff / 864e5),
         hours:   pad(Math.floor((diff % 864e5) / 36e5)),
         mins:    pad(Math.floor((diff % 36e5) / 6e4)),
+        secs:    pad(Math.floor((diff % 6e4) / 1e3)),
         expired: false,
       })
     }
     calc()
-    const id = setInterval(calc, 30000)
+    const id = setInterval(calc, 1000)
     return () => clearInterval(id)
   }, [])
   return time
@@ -404,6 +405,11 @@ export default function Home() {
                 <div className="lp-cd-unit">
                   <span className="lp-cd-num">{cd.mins}</span>
                   <span className="lp-cd-unit-label">min</span>
+                </div>
+                <span className="lp-cd-sep">:</span>
+                <div className="lp-cd-unit">
+                  <span className="lp-cd-num">{cd.secs}</span>
+                  <span className="lp-cd-unit-label">seg</span>
                 </div>
               </div>
             )}

@@ -33,8 +33,8 @@
   --status-approved-bg:      #f0fdf4;
 
   /* Sidebar */
-  --color-sidebar:     #010205;
-  --color-sidebar-fg:  rgba(255,255,255,0.55);
+  --color-sidebar:     #ffffff;
+  --color-sidebar-fg:  rgba(1,2,5,0.5);
 
   /* Shadows */
   --shadow-card:  0 1px 6px rgba(0,0,0,0.05);
@@ -58,7 +58,7 @@
   --color-border:     #e5e7eb;
 
   /* Sidebar */
-  --color-sidebar:    #010205;
+  --color-sidebar:    #ffffff;
 
   /* Fonts */
   --font-display: 'Manrope', 'Trebuchet MS', sans-serif;
