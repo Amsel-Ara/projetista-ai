@@ -5,14 +5,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 const CLIENTS = [
-  { id: '1', name: 'João Silva',    cpf: '123.456.789-00', city: 'Uberaba',               state: 'MG', apps: 2, lastActivity: '31/03/2026', status: 'Em análise' },
-  { id: '2', name: 'Maria Costa',   cpf: '234.567.890-11', city: 'Sorriso',                state: 'MT', apps: 1, lastActivity: '30/03/2026', status: 'Docs Pendentes' },
-  { id: '3', name: 'Pedro Alves',   cpf: '345.678.901-22', city: 'Rio Verde',              state: 'GO', apps: 1, lastActivity: '29/03/2026', status: 'Docs Pendentes' },
-  { id: '4', name: 'Ana Lima',      cpf: '456.789.012-33', city: 'Barreiras',              state: 'BA', apps: 3, lastActivity: '28/03/2026', status: 'Enviado' },
-  { id: '5', name: 'Carlos Souza',  cpf: '567.890.123-44', city: 'Luís Eduardo Magalhães', state: 'BA', apps: 1, lastActivity: '27/03/2026', status: 'Aprovado' },
-  { id: '6', name: 'Luiz Ferreira', cpf: '678.901.234-55', city: 'Rondonópolis',           state: 'MT', apps: 2, lastActivity: '26/03/2026', status: 'Em análise' },
-  { id: '7', name: 'Rosa Martins',  cpf: '789.012.345-66', city: 'Palmas',                 state: 'TO', apps: 1, lastActivity: '25/03/2026', status: 'Rascunho' },
-  { id: '8', name: 'Marcos Rocha',  cpf: '890.123.456-77', city: 'Cascavel',               state: 'PR', apps: 2, lastActivity: '24/03/2026', status: 'Formulário Gerado' },
+  { id: '1', name: 'João Silva',    cpf: '123.456.789-00', city: 'Uberaba',               state: 'MG', apps: 2, lastActivity: '31/03/2026', status: 'Em análise',        totalCommission: 11600 },
+  { id: '2', name: 'Maria Costa',   cpf: '234.567.890-11', city: 'Sorriso',                state: 'MT', apps: 1, lastActivity: '30/03/2026', status: 'Docs Pendentes',    totalCommission: 6250 },
+  { id: '3', name: 'Pedro Alves',   cpf: '345.678.901-22', city: 'Rio Verde',              state: 'GO', apps: 1, lastActivity: '29/03/2026', status: 'Docs Pendentes',    totalCommission: 4800 },
+  { id: '4', name: 'Ana Lima',      cpf: '456.789.012-33', city: 'Barreiras',              state: 'BA', apps: 3, lastActivity: '28/03/2026', status: 'Enviado',           totalCommission: 22500 },
+  { id: '5', name: 'Carlos Souza',  cpf: '567.890.123-44', city: 'Luís Eduardo Magalhães', state: 'BA', apps: 1, lastActivity: '27/03/2026', status: 'Aprovado',          totalCommission: 15000 },
+  { id: '6', name: 'Luiz Ferreira', cpf: '678.901.234-55', city: 'Rondonópolis',           state: 'MT', apps: 2, lastActivity: '26/03/2026', status: 'Em análise',        totalCommission: 9800 },
+  { id: '7', name: 'Rosa Martins',  cpf: '789.012.345-66', city: 'Palmas',                 state: 'TO', apps: 1, lastActivity: '25/03/2026', status: 'Rascunho',          totalCommission: 3200 },
+  { id: '8', name: 'Marcos Rocha',  cpf: '890.123.456-77', city: 'Cascavel',               state: 'PR', apps: 2, lastActivity: '24/03/2026', status: 'Formulário Gerado', totalCommission: 18400 },
 ]
 
 const STATUS_CFG: Record<string, { cls: string }> = {
@@ -52,10 +52,13 @@ export default function CrmPage() {
   const [form,       setForm]       = useState(EMPTY_FORM)
 
   const statuses = ['Todos', ...Object.keys(STATUS_CFG)]
+  // Normalise CPF search: strip dots, dashes, spaces so "12345678900" matches "123.456.789-00"
+  const searchNorm = search.replace(/[\.\-\s]/g, '')
   const filtered = CLIENTS.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.cpf.includes(search)
+    const matchName = c.name.toLowerCase().includes(search.toLowerCase())
+    const matchCpf  = c.cpf.replace(/[\.\-]/g, '').includes(searchNorm)
     const matchFilter = filter === 'Todos' || c.status === filter
-    return matchSearch && matchFilter
+    return (matchName || matchCpf) && matchFilter
   })
 
   const amountNum     = parseFloat(form.amount.replace(/\./g, '').replace(',', '.')) || 0
@@ -128,7 +131,7 @@ export default function CrmPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1.5px solid var(--color-border-subtle)' }}>
-              {['Cliente', 'CPF', 'Localidade', 'Solicitações', 'Última atividade', 'Status', ''].map((h, i) => (
+              {['Cliente', 'Comissão Total', 'Localidade', 'Solicitações', 'Última atividade', 'Status', ''].map((h, i) => (
                 <th key={i} style={{ padding: '13px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                   {h}
                 </th>
@@ -151,7 +154,9 @@ export default function CrmPage() {
                       <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-text-primary)' }}>{c.name}</span>
                     </div>
                   </td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{c.cpf}</td>
+                  <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, color: 'var(--brand-orange)', fontVariantNumeric: 'tabular-nums' }}>
+                    R$ {c.totalCommission.toLocaleString('pt-BR')}
+                  </td>
                   <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>{c.city}, {c.state}</td>
                   <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--color-text-primary)', fontWeight: 600 }}>{c.apps}</td>
                   <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{c.lastActivity}</td>

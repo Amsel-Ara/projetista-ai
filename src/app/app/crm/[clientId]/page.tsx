@@ -316,6 +316,20 @@ export default function ClientProfilePage() {
                   ))}
                 </div>
               ))}
+              {/* Total commission across all applications */}
+              {APPLICATIONS.length > 1 && (() => {
+                const total = APPLICATIONS.reduce((sum, app) => sum + (app.amount * app.commission / 100), 0)
+                return (
+                  <div style={{ background: 'var(--brand-orange-bg)', borderRadius: '10px', padding: '12px 14px', borderLeft: '3px solid var(--brand-orange)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--brand-orange)' }}>Total comissões</span>
+                      <span style={{ fontSize: '17px', fontWeight: 800, color: 'var(--brand-orange)', fontFamily: 'Manrope, sans-serif' }}>
+                        R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Pendências tracker */}
