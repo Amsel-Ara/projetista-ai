@@ -1,15 +1,30 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+function AuthErrorBanner() {
+  const searchParams = useSearchParams()
+  if (searchParams.get('error') !== 'auth') return null
+  return (
+    <div style={{
+      background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px',
+      padding: '12px 14px', marginBottom: '20px', fontSize: '14px', color: '#dc2626',
+      lineHeight: 1.5,
+    }}>
+      Link de acesso inválido ou expirado.{' '}
+      <strong>Solicite um novo convite à equipe.</strong>
+    </div>
+  )
+}
+
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [error,    setError]    = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const router   = useRouter()
   const supabase = createClient()
 
   async function handleLogin(e: React.FormEvent) {
@@ -17,7 +32,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError('Email ou senha incorretos.')
@@ -25,17 +40,22 @@ export default function LoginPage() {
       return
     }
 
+    // Middleware will handle routing based on terms_accepted
     router.push('/app/dashboard')
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAFA', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+    <div style={{
+      minHeight: '100vh', background: '#FAFAFA',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+    }}>
       <div style={{ width: '100%', maxWidth: '400px' }}>
+
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <a href="/" style={{ textDecoration: 'none' }}>
-            <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '24px', color: '#B95B37', letterSpacing: '-0.5px' }}>
-              Projetista.Ai
+            <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '24px', color: '#010205', letterSpacing: '-0.5px' }}>
+              Projetista<span style={{ color: '#B95B37' }}>.Ai</span>
             </span>
           </a>
         </div>
@@ -48,6 +68,11 @@ export default function LoginPage() {
           <p style={{ color: '#878C91', fontSize: '14px', textAlign: 'center', marginBottom: '32px' }}>
             Acesse sua conta para continuar
           </p>
+
+          {/* Error banner for bad invite links */}
+          <Suspense fallback={null}>
+            <AuthErrorBanner />
+          </Suspense>
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: '16px' }}>
@@ -67,7 +92,7 @@ export default function LoginPage() {
                   fontFamily: 'Plus Jakarta Sans, sans-serif',
                 }}
                 onFocus={e => e.target.style.borderColor = '#B95B37'}
-                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                onBlur={e  => e.target.style.borderColor = '#e5e7eb'}
               />
             </div>
 
@@ -88,12 +113,15 @@ export default function LoginPage() {
                   fontFamily: 'Plus Jakarta Sans, sans-serif',
                 }}
                 onFocus={e => e.target.style.borderColor = '#B95B37'}
-                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                onBlur={e  => e.target.style.borderColor = '#e5e7eb'}
               />
             </div>
 
             {error && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '14px', color: '#dc2626' }}>
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px',
+                padding: '12px', marginBottom: '16px', fontSize: '14px', color: '#dc2626',
+              }}>
                 {error}
               </div>
             )}
@@ -102,7 +130,8 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               style={{
-                width: '100%', padding: '13px', background: loading ? '#d4956f' : '#B95B37',
+                width: '100%', padding: '13px',
+                background: loading ? '#d4956f' : '#B95B37',
                 color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px',
                 fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
                 fontFamily: 'Manrope, sans-serif', transition: 'background 0.2s',
@@ -115,7 +144,7 @@ export default function LoginPage() {
 
         <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '13px', color: '#878C91' }}>
           Não tem acesso?{' '}
-          <a href="mailto:hello@amsel-ara.com" style={{ color: '#B95B37', textDecoration: 'none', fontWeight: 600 }}>
+          <a href="mailto:hello@projetista.ai" style={{ color: '#B95B37', textDecoration: 'none', fontWeight: 600 }}>
             Fale com a equipe
           </a>
         </p>

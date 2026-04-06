@@ -30,22 +30,35 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-
   const { pathname } = request.nextUrl
+  const termsAccepted = user?.user_metadata?.terms_accepted === true
 
-  // Protect app routes
-  if (pathname.startsWith('/app') && !user) {
+  // Unauthenticated → block /app/* and /onboard
+  if (!user && (pathname.startsWith('/app') || pathname === '/onboard')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect logged-in users away from login page
-  if (pathname === '/login' && user) {
-    return NextResponse.redirect(new URL('/app', request.url))
+  // Authenticated but T&C not accepted → block /app/*
+  if (user && !termsAccepted && pathname.startsWith('/app')) {
+    return NextResponse.redirect(new URL('/onboard', request.url))
+  }
+
+  // Authenticated + T&C accepted → skip /onboard, go to dashboard
+  if (user && termsAccepted && pathname === '/onboard') {
+    return NextResponse.redirect(new URL('/app/dashboard', request.url))
+  }
+
+  // Authenticated on login page → route correctly
+  if (user && pathname === '/login') {
+    if (!termsAccepted) {
+      return NextResponse.redirect(new URL('/onboard', request.url))
+    }
+    return NextResponse.redirect(new URL('/app/dashboard', request.url))
   }
 
   return supabaseResponse
 }
 
 export const config = {
-  matcher: ['/app/:path*', '/login'],
+  matcher: ['/app/:path*', '/login', '/onboard'],
 }

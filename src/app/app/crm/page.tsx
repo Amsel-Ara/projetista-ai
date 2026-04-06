@@ -1,19 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-const CLIENTS = [
-  { id: '1', name: 'João Silva',    cpf: '123.456.789-00', city: 'Uberaba',               state: 'MG', apps: 2, lastActivity: '31/03/2026', status: 'Em análise',        totalCommission: 11600 },
-  { id: '2', name: 'Maria Costa',   cpf: '234.567.890-11', city: 'Sorriso',                state: 'MT', apps: 1, lastActivity: '30/03/2026', status: 'Docs Pendentes',    totalCommission: 6250 },
-  { id: '3', name: 'Pedro Alves',   cpf: '345.678.901-22', city: 'Rio Verde',              state: 'GO', apps: 1, lastActivity: '29/03/2026', status: 'Docs Pendentes',    totalCommission: 4800 },
-  { id: '4', name: 'Ana Lima',      cpf: '456.789.012-33', city: 'Barreiras',              state: 'BA', apps: 3, lastActivity: '28/03/2026', status: 'Enviado',           totalCommission: 22500 },
-  { id: '5', name: 'Carlos Souza',  cpf: '567.890.123-44', city: 'Luís Eduardo Magalhães', state: 'BA', apps: 1, lastActivity: '27/03/2026', status: 'Aprovado',          totalCommission: 15000 },
-  { id: '6', name: 'Luiz Ferreira', cpf: '678.901.234-55', city: 'Rondonópolis',           state: 'MT', apps: 2, lastActivity: '26/03/2026', status: 'Em análise',        totalCommission: 9800 },
-  { id: '7', name: 'Rosa Martins',  cpf: '789.012.345-66', city: 'Palmas',                 state: 'TO', apps: 1, lastActivity: '25/03/2026', status: 'Rascunho',          totalCommission: 3200 },
-  { id: '8', name: 'Marcos Rocha',  cpf: '890.123.456-77', city: 'Cascavel',               state: 'PR', apps: 2, lastActivity: '24/03/2026', status: 'Formulário Gerado', totalCommission: 18400 },
-]
+const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+
+type Client = {
+  id: string
+  name: string
+  cpf: string
+  city: string
+  state: string
+  status: string
+  apps: number
+  lastActivity: string
+  totalCommission: number
+}
 
 const STATUS_CFG: Record<string, { cls: string }> = {
   'Rascunho':          { cls: 'badge badge-draft' },
@@ -44,19 +48,57 @@ function FieldLabel({ text, required }: { text: string; required?: boolean }) {
 }
 
 export default function CrmPage() {
-  const router = useRouter()
+  const router   = useRouter()
+  const supabase = createClient()
+
+  const [clients,    setClients]    = useState<Client[]>([])
+  const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [filter,     setFilter]     = useState('Todos')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [step,       setStep]       = useState<Step>(1)
   const [form,       setForm]       = useState(EMPTY_FORM)
+  const [saving,     setSaving]     = useState(false)
+
+  // Load clients from Supabase
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const { data } = await supabase
+        .from('clients')
+        .select('id, name, cpf, city, state, status, updated_at, applications(id, amount, commission_pct, updated_at)')
+        .order('created_at', { ascending: false })
+
+      if (data) {
+        setClients(data.map((c: any) => {
+          const apps = c.applications ?? []
+          const totalCommission = apps.reduce(
+            (sum: number, a: any) => sum + ((a.amount ?? 0) * (a.commission_pct ?? 0) / 100), 0
+          )
+          const lastApp = apps.sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]
+          return {
+            id:              c.id,
+            name:            c.name,
+            cpf:             c.cpf ?? '',
+            city:            c.city ?? '',
+            state:           c.state ?? '',
+            status:          c.status ?? 'Ativo',
+            apps:            apps.length,
+            lastActivity:    lastApp ? new Date(lastApp.updated_at).toLocaleDateString('pt-BR') : new Date(c.updated_at).toLocaleDateString('pt-BR'),
+            totalCommission,
+          }
+        }))
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
 
   const statuses = ['Todos', ...Object.keys(STATUS_CFG)]
-  // Normalise CPF search: strip dots, dashes, spaces so "12345678900" matches "123.456.789-00"
   const searchNorm = search.replace(/[\.\-\s]/g, '')
-  const filtered = CLIENTS.filter(c => {
-    const matchName = c.name.toLowerCase().includes(search.toLowerCase())
-    const matchCpf  = c.cpf.replace(/[\.\-]/g, '').includes(searchNorm)
+  const filtered = clients.filter(c => {
+    const matchName   = c.name.toLowerCase().includes(search.toLowerCase())
+    const matchCpf    = c.cpf.replace(/[\.\-]/g, '').includes(searchNorm)
     const matchFilter = filter === 'Todos' || c.status === filter
     return (matchName || matchCpf) && matchFilter
   })
@@ -65,22 +107,52 @@ export default function CrmPage() {
   const commissionNum = parseFloat(form.commission.replace(',', '.')) || 0
   const projectedFee  = amountNum * commissionNum / 100
 
-  function openDrawer() {
-    setForm(EMPTY_FORM)
-    setStep(1)
-    setDrawerOpen(true)
-  }
-
+  function openDrawer() { setForm(EMPTY_FORM); setStep(1); setDrawerOpen(true) }
   function closeDrawer() { setDrawerOpen(false) }
-
   function update(field: keyof typeof EMPTY_FORM, value: string) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  function handleSave(goToUpload: boolean) {
-    // In production: POST to Supabase
+  async function handleSave(goToUpload: boolean) {
+    setSaving(true)
+    // Insert client
+    const { data: clientData, error: clientErr } = await supabase
+      .from('clients')
+      .insert({
+        organization_id: ORG_ID,
+        name:            form.name,
+        whatsapp:        form.whatsapp,
+        email:           form.email || null,
+        city:            form.city || null,
+        state:           form.state || null,
+        farm_name:       form.farmName || null,
+        farm_address:    form.farmAddress || null,
+        status:          'Ativo',
+      })
+      .select('id')
+      .single()
+
+    if (clientErr || !clientData) { setSaving(false); return }
+
+    // Insert application
+    const { data: appData } = await supabase
+      .from('applications')
+      .insert({
+        organization_id: ORG_ID,
+        client_id:       clientData.id,
+        loan_type:       form.loanType,
+        bank:            form.bank,
+        amount:          amountNum || null,
+        commission_pct:  commissionNum || null,
+        status:          'Rascunho',
+      })
+      .select('id')
+      .single()
+
+    setSaving(false)
     closeDrawer()
-    router.push(goToUpload ? '/app/crm/1?tab=docs' : '/app/crm/1')
+    const dest = `/app/crm/${clientData.id}${goToUpload ? '?tab=docs' : ''}`
+    router.push(dest)
   }
 
   const step1Valid = form.name.trim().length > 0 && form.whatsapp.trim().length > 0
@@ -139,7 +211,12 @@ export default function CrmPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c, i) => {
+            {loading ? (
+              <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '14px' }}>Carregando clientes...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '14px' }}>Nenhum cliente encontrado.</td></tr>
+            ) : null}
+            {!loading && filtered.map((c, i) => {
               const cfg = STATUS_CFG[c.status] || { cls: 'badge badge-draft' }
               return (
                 <tr
@@ -365,11 +442,11 @@ export default function CrmPage() {
               <button onClick={() => setStep(2)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
                 ← Voltar
               </button>
-              <button onClick={() => handleSave(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+              <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--color-text-primary)' }}>
                 Salvar sem upload
               </button>
-              <button onClick={() => handleSave(true)} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-                Salvar e fazer upload
+              <button onClick={() => handleSave(true)} disabled={saving} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: saving ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                {saving ? 'Salvando...' : 'Salvar e fazer upload'}
               </button>
             </>
           )}

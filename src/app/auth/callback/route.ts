@@ -8,12 +8,13 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (!error && data.user) {
-      const role = data.user.user_metadata?.role
-      if (role === 'team_member' || role === 'admin') {
-        return NextResponse.redirect(`${origin}/admin`)
+      const termsAccepted = data.user.user_metadata?.terms_accepted === true
+      if (!termsAccepted) {
+        return NextResponse.redirect(`${origin}/onboard`)
       }
-      return NextResponse.redirect(`${origin}/portal`)
+      return NextResponse.redirect(`${origin}/app/dashboard`)
     }
   }
 

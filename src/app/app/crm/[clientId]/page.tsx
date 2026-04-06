@@ -3,40 +3,23 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-/* ─── Mock data ─────────────────────────────────────────────────────────── */
-const CLIENT = {
-  id: '1',
-  name: 'João Silva',
-  initials: 'JS',
-  whatsapp: '+55 (34) 99123-4567',
-  email: 'joao.silva@fazenda.com.br',
-  city: 'Uberaba',
-  state: 'MG',
-  farmName: 'Fazenda São João',
-  farmAddress: 'Rodovia MG-050, km 120, Zona Rural',
-  assignedTo: 'Amsel Ara',
-  // Filled via documents later:
-  cpf: '123.456.789-00',
-  totalArea: '850 ha',
-  carNumber: 'MG-3170206-9F3A2B1C4D5E6F7A',
-  nirf: '1234567',
+type ClientData = {
+  id: string; name: string; initials: string; whatsapp: string; email: string
+  city: string; state: string; farmName: string; farmAddress: string
+  assignedTo: string; cpf: string
+}
+type AppData = {
+  id: string; program: string; bank: string; status: string; created: string
+  amount: number; commission: number; docsComplete: number; docsTotal: number
 }
 
-const APPLICATIONS = [
-  {
-    id: '1', program: 'Pronaf Custeio', bank: 'Banco do Brasil',
-    status: 'Em análise', created: '15/03/2026',
-    amount: 320000, commission: 2.5,
-    docsComplete: 9, docsTotal: 13,
-  },
-  {
-    id: '2', program: 'Pronaf Investimento', bank: 'Banco do Brasil',
-    status: 'Rascunho', created: '28/03/2026',
-    amount: 180000, commission: 2.0,
-    docsComplete: 2, docsTotal: 13,
-  },
-]
+const CLIENT_EMPTY: ClientData = {
+  id: '', name: '…', initials: '?', whatsapp: '', email: '',
+  city: '', state: '', farmName: '', farmAddress: '',
+  assignedTo: '', cpf: '',
+}
 
 const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
   'Rascunho':           { color: '#878C91', bg: '#F3F3F3',  cls: 'badge badge-draft' },
@@ -120,11 +103,65 @@ const EXPIRY_DOT: Record<string, { color: string; label: string }> = {
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 export default function ClientProfilePage() {
-  const { clientId } = useParams()
+  const { clientId }  = useParams()
   const searchParams  = useSearchParams()
+  const supabase      = createClient()
+
+  const [clientData,   setClientData]  = useState<ClientData>(CLIENT_EMPTY)
+  const [applications, setApplications] = useState<AppData[]>([])
+  const [dataLoading,  setDataLoading] = useState(true)
+
+  // Load client + applications from Supabase
+  useEffect(() => {
+    if (!clientId) return
+    async function load() {
+      setDataLoading(true)
+      const [clientRes, appsRes] = await Promise.all([
+        supabase.from('clients').select('*').eq('id', clientId).single(),
+        supabase.from('applications').select('*, documents(id)').eq('client_id', clientId).order('created_at'),
+      ])
+      if (clientRes.data) {
+        const c = clientRes.data
+        const name = c.name ?? ''
+        const parts = name.trim().split(' ')
+        const initials = parts.length >= 2
+          ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+          : name.slice(0, 2).toUpperCase()
+        setClientData({
+          id: c.id, name, initials,
+          whatsapp:    c.whatsapp    ?? '',
+          email:       c.email       ?? '',
+          city:        c.city        ?? '',
+          state:       c.state       ?? '',
+          farmName:    c.farm_name   ?? '',
+          farmAddress: c.farm_address ?? '',
+          assignedTo:  '',
+          cpf:         c.cpf         ?? '',
+        })
+      }
+      if (appsRes.data) {
+        setApplications(appsRes.data.map((a: any) => ({
+          id:          a.id,
+          program:     a.loan_type  ?? '',
+          bank:        a.bank       ?? '',
+          status:      a.status     ?? 'Rascunho',
+          created:     new Date(a.created_at).toLocaleDateString('pt-BR'),
+          amount:      a.amount     ?? 0,
+          commission:  a.commission_pct ?? 0,
+          docsComplete: (a.documents ?? []).length,
+          docsTotal:   DOC_TYPES.length,
+        })))
+      }
+      setDataLoading(false)
+    }
+    load()
+  }, [clientId])
+
+  // Use loaded applications or empty array for derived state
+  const APPLICATIONS = applications
 
   const [tab,          setTab]         = useState<'overview' | 'docs' | 'data'>('overview')
-  const [activeAppId,  setActiveAppId] = useState(APPLICATIONS[0].id)
+  const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
   const [uploaded,     setUploaded]    = useState(MOCK_UPLOADED)
   const [expiryDates,  setExpiryDates] = useState<Record<string, string>>(
@@ -141,9 +178,16 @@ export default function ClientProfilePage() {
     if (searchParams.get('tab') === 'docs') setTab('docs')
   }, [searchParams])
 
-  const activeApp = APPLICATIONS.find(a => a.id === activeAppId) ?? APPLICATIONS[0]
-  const appPct    = Math.round((activeApp.docsComplete / activeApp.docsTotal) * 100)
-  const projectedFee = activeApp.amount * activeApp.commission / 100
+  // Sync activeAppId when applications load
+  useEffect(() => {
+    if (applications.length > 0 && !activeAppId) {
+      setActiveAppId(applications[0].id)
+    }
+  }, [applications])
+
+  const activeApp    = APPLICATIONS.find(a => a.id === activeAppId) ?? APPLICATIONS[0]
+  const appPct       = activeApp ? Math.round((activeApp.docsComplete / activeApp.docsTotal) * 100) : 0
+  const projectedFee = activeApp ? activeApp.amount * activeApp.commission / 100 : 0
 
   // Missing docs for active application
   const missingDocs  = DOC_TYPES.filter(d => !uploaded[d.key])
@@ -188,7 +232,7 @@ export default function ClientProfilePage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px', fontSize: '13px', color: '#878C91' }}>
         <Link href="/app/crm" style={{ color: '#878C91', textDecoration: 'none' }}>CRM</Link>
         <span>›</span>
-        <span style={{ color: '#010205', fontWeight: 600 }}>{CLIENT.name}</span>
+        <span style={{ color: '#010205', fontWeight: 600 }}>{clientData.name}</span>
       </div>
 
       {/* ── Client header card ── */}
@@ -196,11 +240,11 @@ export default function ClientProfilePage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#FDF0EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: '#B95B37', flexShrink: 0 }}>
-              {CLIENT.initials}
+              {clientData.initials}
             </div>
             <div>
-              <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '22px', color: '#010205', letterSpacing: '-0.5px', marginBottom: '2px' }}>{CLIENT.name}</h1>
-              <div style={{ fontSize: '13px', color: '#878C91' }}>{CLIENT.farmName} · {CLIENT.city}, {CLIENT.state}</div>
+              <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '22px', color: '#010205', letterSpacing: '-0.5px', marginBottom: '2px' }}>{clientData.name}</h1>
+              <div style={{ fontSize: '13px', color: '#878C91' }}>{clientData.farmName} · {clientData.city}, {clientData.state}</div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -238,12 +282,12 @@ export default function ClientProfilePage() {
               <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '16px' }}>Contato</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 {[
-                  { icon: '💬', label: 'WhatsApp', value: CLIENT.whatsapp },
-                  { icon: '✉️', label: 'Email', value: CLIENT.email },
-                  { icon: '📍', label: 'Localização', value: `${CLIENT.city} — ${CLIENT.state}` },
-                  { icon: '🏡', label: 'Fazenda', value: CLIENT.farmName },
-                  { icon: '👤', label: 'Responsável', value: CLIENT.assignedTo },
-                  { icon: '📄', label: 'CPF', value: CLIENT.cpf },
+                  { icon: '💬', label: 'WhatsApp', value: clientData.whatsapp },
+                  { icon: '✉️', label: 'Email', value: clientData.email },
+                  { icon: '📍', label: 'Localização', value: `${clientData.city} — ${clientData.state}` },
+                  { icon: '🏡', label: 'Fazenda', value: clientData.farmName },
+                  { icon: '👤', label: 'Responsável', value: clientData.assignedTo },
+                  { icon: '📄', label: 'CPF', value: clientData.cpf },
                 ].map((f, i) => (
                   <div key={i}>
                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#878C91', letterSpacing: '0.5px', marginBottom: '3px', textTransform: 'uppercase' }}>
