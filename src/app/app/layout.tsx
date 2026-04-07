@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV = [
@@ -48,8 +49,15 @@ const NAV = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router   = useRouter()
   const [userName,     setUserName]     = useState('')
   const [userInitials, setUserInitials] = useState('…')
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -132,26 +140,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             gap: '10px',
             padding: '10px 12px',
             borderRadius: '8px',
-            transition: 'background 0.15s',
           }}>
             {/* Avatar */}
             <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: 'var(--brand-orange)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '12px',
-              fontWeight: 700,
-              color: '#fff',
-              flexShrink: 0,
-              letterSpacing: '0.5px',
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: 'var(--brand-orange)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontSize: '12px', fontWeight: 700, color: '#fff',
+              flexShrink: 0, letterSpacing: '0.5px',
             }}>
               {userInitials}
             </div>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {userName || '…'}
               </div>
@@ -159,6 +159,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 Administrador
               </div>
             </div>
+            {/* Logout button */}
+            <button
+              onClick={handleLogout}
+              title="Sair"
+              style={{
+                border: 'none', background: 'none', cursor: 'pointer',
+                color: 'var(--color-text-secondary)', padding: '4px',
+                borderRadius: '6px', display: 'flex', alignItems: 'center',
+                flexShrink: 0, transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
         </div>
       </aside>
