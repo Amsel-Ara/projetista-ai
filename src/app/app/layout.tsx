@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 const NAV = [
   {
@@ -46,6 +48,23 @@ const NAV = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const [userName,     setUserName]     = useState('')
+  const [userInitials, setUserInitials] = useState('…')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      const user = data.user
+      if (!user) return
+      const name = user.user_metadata?.full_name || user.email?.split('@')[0] || ''
+      setUserName(name)
+      const parts = name.trim().split(/\s+/)
+      const initials = parts.length >= 2
+        ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+        : name.slice(0, 2).toUpperCase()
+      setUserInitials(initials || '?')
+    })
+  }, [])
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-surface-2)', fontFamily: 'var(--font-body)' }}>
@@ -130,11 +149,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               flexShrink: 0,
               letterSpacing: '0.5px',
             }}>
-              AA
+              {userInitials}
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Amsel Ara
+                {userName || '…'}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
                 Administrador

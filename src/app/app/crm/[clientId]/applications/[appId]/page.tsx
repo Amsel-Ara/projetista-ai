@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const DOC_TYPES = [
   { key: 'car',          label: 'Recibo do CAR' },
@@ -20,35 +21,55 @@ const DOC_TYPES = [
   { key: 'producao',     label: 'Laudo de produção' },
 ]
 
-const MOCK_UPLOADED: Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review' }> = {
-  car:          { name: 'CAR_Fazenda_São_João.pdf',    status: 'completed' },
-  itr:          { name: 'ITR_2024.pdf',                status: 'completed' },
-  ccir:         { name: 'CCIR_2024_quitado.pdf',       status: 'completed' },
-  matricula:    { name: 'Matricula_atualizada.pdf',     status: 'needs_review' },
-  sintegra:     { name: 'Sintegra_export.pdf',          status: 'processing' },
-  arrendamento: { name: 'Contrato_arrendamento.pdf',   status: 'completed' },
-  sanitaria:    { name: 'Ficha_sanitaria.pdf',          status: 'completed' },
-  licenca:      { name: 'Licenca_ambiental.pdf',        status: 'completed' },
-  outorga:      { name: 'Outorga_agua.pdf',             status: 'completed' },
-}
-
 const STATUS_CFG = {
   completed:    { label: 'Processado',    color: 'var(--status-approved-color)',  bg: 'var(--status-approved-bg)',  icon: '✓' },
   processing:   { label: 'Processando…', color: 'var(--status-sent-color)',      bg: 'var(--status-sent-bg)',      icon: '⟳' },
   needs_review: { label: 'Revisar',       color: 'var(--status-pending-color)',   bg: 'var(--status-pending-bg)',   icon: '!' },
 }
 
-const NOTES = [
-  { author: 'Amsel Ara', date: '30/03/2026 14:32', text: 'Matrícula precisa ser atualizada — a atual está com data de 2023. Solicitei ao cliente.' },
-  { author: 'Amsel Ara', date: '28/03/2026 09:15', text: 'Cliente confirmou que enviará o Sintegra até sexta-feira.' },
-]
-
 export default function ApplicationDetailPage() {
   const { clientId, appId } = useParams()
-  const [dragging, setDragging] = useState(false)
-  const [uploaded, setUploaded] = useState(MOCK_UPLOADED)
-  const [note, setNote] = useState('')
-  const [notes, setNotes] = useState(NOTES)
+  const supabase = createClient()
+
+  const [clientName,  setClientName]  = useState('…')
+  const [appTitle,    setAppTitle]    = useState('Solicitação')
+  const [appBank,     setAppBank]     = useState('')
+  const [appCreated,  setAppCreated]  = useState('')
+  const [appStatus,   setAppStatus]   = useState('Em análise')
+  const [currentUser, setCurrentUser] = useState('')
+  const [dragging,    setDragging]    = useState(false)
+  const [uploaded,    setUploaded]    = useState<Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review' }>>({})
+  const [note,        setNote]        = useState('')
+  const [notes,       setNotes]       = useState<{ author: string; date: string; text: string }[]>([])
+
+  useEffect(() => {
+    async function load() {
+      // Fetch current user
+      const { data: userData } = await supabase.auth.getUser()
+      const user = userData.user
+      if (user) {
+        setCurrentUser(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário')
+      }
+
+      // Fetch application + client name
+      if (appId) {
+        const { data: app } = await supabase
+          .from('applications')
+          .select('loan_type, bank, status, created_at, clients(name)')
+          .eq('id', appId)
+          .single()
+        if (app) {
+          setAppTitle(app.loan_type ?? 'Solicitação')
+          setAppBank(app.bank ?? '')
+          setAppStatus(app.status ?? 'Em análise')
+          setAppCreated(new Date(app.created_at).toLocaleDateString('pt-BR'))
+          const c = app.clients as any
+          setClientName(c?.name ?? '…')
+        }
+      }
+    }
+    load()
+  }, [appId])
 
   const completed = Object.keys(uploaded).length
   const total = DOC_TYPES.length
@@ -62,7 +83,7 @@ export default function ApplicationDetailPage() {
 
   function addNote() {
     if (!note.trim()) return
-    setNotes(prev => [{ author: 'Amsel Ara', date: new Date().toLocaleString('pt-BR'), text: note }, ...prev])
+    setNotes(prev => [{ author: currentUser || 'Usuário', date: new Date().toLocaleString('pt-BR'), text: note }, ...prev])
     setNote('')
   }
 
@@ -72,19 +93,19 @@ export default function ApplicationDetailPage() {
       <nav className="breadcrumb">
         <Link href="/app/crm">CRM</Link>
         <span>›</span>
-        <Link href={`/app/crm/${clientId}`}>João Silva</Link>
+        <Link href={`/app/crm/${clientId}`}>{clientName}</Link>
         <span>›</span>
-        <span className="active">Pronaf Custeio</span>
+        <span className="active">{appTitle}</span>
       </nav>
 
       {/* Application header card */}
       <div className="card" style={{ padding: '22px 28px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '22px', color: 'var(--color-text-primary)', letterSpacing: '-0.5px', marginBottom: '4px' }}>
-            Pronaf Custeio
+            {appTitle}
           </h1>
           <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-            João Silva · Banco do Brasil · Criado em 15/03/2026
+            {clientName}{appBank ? ` · ${appBank}` : ''}{appCreated ? ` · Criado em ${appCreated}` : ''}
           </div>
         </div>
 
@@ -110,21 +131,25 @@ export default function ApplicationDetailPage() {
           </div>
 
           {/* Status selector */}
-          <select style={{
-            padding: '8px 12px',
-            border: '1.5px solid var(--status-analysis-color)',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            color: 'var(--status-analysis-color)',
-            background: 'var(--status-analysis-bg)',
-            outline: 'none',
-            cursor: 'pointer',
-          }}>
-            <option>Em análise</option>
+          <select
+            value={appStatus}
+            onChange={e => setAppStatus(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1.5px solid var(--status-analysis-color)',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--status-analysis-color)',
+              background: 'var(--status-analysis-bg)',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
             <option>Rascunho</option>
-            <option>Docs Pendentes</option>
-            <option>Formulário Gerado</option>
+            <option>Documentos pendentes</option>
+            <option>Em análise</option>
+            <option>Formulário gerado</option>
             <option>Enviado</option>
             <option>Aprovado</option>
           </select>

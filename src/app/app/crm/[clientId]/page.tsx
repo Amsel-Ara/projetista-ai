@@ -47,17 +47,7 @@ const DOC_TYPES = [
   { key: 'producao',     label: 'Laudo de produção',                    hasExpiry: false },
 ]
 
-const MOCK_UPLOADED: Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review'; expiry?: string }> = {
-  car:          { name: 'CAR_Fazenda_São_João.pdf',  status: 'completed',    expiry: '2026-12-31' },
-  itr:          { name: 'ITR_2024.pdf',              status: 'completed',    expiry: '2025-04-15' }, // expired
-  ccir:         { name: 'CCIR_2024_quitado.pdf',     status: 'completed',    expiry: '2026-05-01' }, // expiring soon
-  matricula:    { name: 'Matricula_atualizada.pdf',  status: 'needs_review', expiry: '' },
-  sintegra:     { name: 'Sintegra_export.pdf',       status: 'processing',   expiry: '' },
-  arrendamento: { name: 'Contrato_arrendamento.pdf', status: 'completed',    expiry: '2027-06-30' },
-  sanitaria:    { name: 'Ficha_sanitaria.pdf',       status: 'completed',    expiry: '2026-09-01' },
-  licenca:      { name: 'Licenca_ambiental.pdf',     status: 'completed',    expiry: '2028-01-01' },
-  outorga:      { name: 'Outorga_agua.pdf',          status: 'completed',    expiry: '2027-03-15' },
-}
+// Documents will be populated when files are uploaded (Phase 3)
 
 const DOC_STATUS_CFG = {
   completed:    { label: 'Processado',    color: 'var(--status-approved-color)', bg: 'var(--status-approved-bg)',  icon: '✓' },
@@ -65,23 +55,7 @@ const DOC_STATUS_CFG = {
   needs_review: { label: 'Revisar',       color: 'var(--status-pending-color)',  bg: 'var(--status-pending-bg)',   icon: '!' },
 }
 
-const NOTES = [
-  { author: 'Amsel Ara', date: '30/03/2026 14:32', text: 'Matrícula precisa ser atualizada — a atual está com data de 2023. Solicitei ao cliente.' },
-  { author: 'Amsel Ara', date: '28/03/2026 09:15', text: 'Cliente confirmou que enviará o Sintegra até sexta-feira.' },
-]
-
-/* ─── Mock extracted fields (Tab 3) ─────────────────────────────────────── */
-const EXTRACTED_FIELDS = [
-  { label: 'Nome completo',       value: 'João da Silva',                    source: 'CPF / RG',    verified: true },
-  { label: 'CPF',                 value: '123.456.789-00',                   source: 'CPF / RG',    verified: true },
-  { label: 'Número CAR',          value: 'MG-3170206-9F3A2B1C4D5E6F7A',     source: 'Recibo CAR',  verified: true },
-  { label: 'Área total (CAR)',    value: '850 ha',                           source: 'Recibo CAR',  verified: true },
-  { label: 'NIRF',                value: '1234567',                          source: 'CCIR 2024',   verified: false },
-  { label: 'Módulo fiscal',       value: '—',                                source: 'CCIR 2024',   verified: false },
-  { label: 'Número matrícula',    value: 'Pendente',                         source: 'Matrícula',   verified: false },
-  { label: 'Número DAP/CAF',      value: 'Pendente',                         source: 'DAP / CAF',   verified: false },
-  { label: 'Tipo de rebanho',     value: 'Pendente',                         source: 'Ficha sanitária', verified: false },
-]
+// Notes and extracted fields are loaded from Supabase (Phases 3+)
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 function expiryStatus(dateStr: string): 'ok' | 'soon' | 'expired' | 'none' {
@@ -110,6 +84,15 @@ export default function ClientProfilePage() {
   const [clientData,   setClientData]  = useState<ClientData>(CLIENT_EMPTY)
   const [applications, setApplications] = useState<AppData[]>([])
   const [dataLoading,  setDataLoading] = useState(true)
+
+  // Fetch current user name for notes
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const user = data.user
+      if (!user) return
+      setCurrentUser(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário')
+    })
+  }, [])
 
   // Load client + applications from Supabase
   useEffect(() => {
@@ -160,15 +143,14 @@ export default function ClientProfilePage() {
   // Use loaded applications or empty array for derived state
   const APPLICATIONS = applications
 
+  const [currentUser,  setCurrentUser]  = useState('')
   const [tab,          setTab]         = useState<'overview' | 'docs' | 'data'>('overview')
   const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
-  const [uploaded,     setUploaded]    = useState(MOCK_UPLOADED)
-  const [expiryDates,  setExpiryDates] = useState<Record<string, string>>(
-    Object.fromEntries(Object.entries(MOCK_UPLOADED).map(([k, v]) => [k, v.expiry ?? '']))
-  )
+  const [uploaded,     setUploaded]    = useState<Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review'; expiry?: string }>>({})
+  const [expiryDates,  setExpiryDates] = useState<Record<string, string>>({})
   const [note,         setNote]        = useState('')
-  const [notes,        setNotes]       = useState(NOTES)
+  const [notes,        setNotes]       = useState<{ author: string; date: string; text: string }[]>([])
   const [appStatus,    setAppStatus]   = useState<Record<string, string>>(
     Object.fromEntries(APPLICATIONS.map(a => [a.id, a.status]))
   )
@@ -204,7 +186,7 @@ export default function ClientProfilePage() {
 
   function addNote() {
     if (!note.trim()) return
-    setNotes(prev => [{ author: 'Amsel Ara', date: new Date().toLocaleString('pt-BR'), text: note }, ...prev])
+    setNotes(prev => [{ author: currentUser || 'Usuário', date: new Date().toLocaleString('pt-BR'), text: note }, ...prev])
     setNote('')
   }
 
@@ -641,25 +623,12 @@ export default function ClientProfilePage() {
           <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
             <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>Dados Extraídos dos Documentos</div>
             <div style={{ fontSize: '12px', color: '#878C91', marginBottom: '20px' }}>Extraídos automaticamente via leitura de documentos. Verifique e corrija se necessário.</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-              {EXTRACTED_FIELDS.map((field, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: i < EXTRACTED_FIELDS.length - 1 ? '1px solid var(--color-border-subtle)' : 'none' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#878C91', letterSpacing: '0.4px', textTransform: 'uppercase', marginBottom: '2px' }}>{field.label}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: field.value === 'Pendente' ? '#d1d5db' : '#010205' }}>
-                      {field.value}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#878C91', marginTop: '1px' }}>Fonte: {field.source}</div>
-                  </div>
-                  <span style={{
-                    flexShrink: 0, fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px',
-                    background: field.verified ? '#f0fdf4' : '#F3F3F3',
-                    color:      field.verified ? '#16a34a' : '#878C91',
-                  }}>
-                    {field.verified ? 'Verificado ✓' : 'Pendente'}
-                  </span>
-                </div>
-              ))}
+            <div style={{ textAlign: 'center', padding: '32px 0', color: '#878C91' }}>
+              <div style={{ fontSize: '28px', marginBottom: '10px' }}>📄</div>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#010205', marginBottom: '4px' }}>Nenhum dado extraído ainda</p>
+              <p style={{ fontSize: '12px', lineHeight: 1.6 }}>
+                Envie documentos na aba <strong>Documentos</strong> para que o sistema extraia os campos automaticamente.
+              </p>
             </div>
           </div>
         </div>
