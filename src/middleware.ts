@@ -31,6 +31,12 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
+
+  // Forward Supabase auth codes from any page (e.g. landing page) to the callback handler
+  const code = request.nextUrl.searchParams.get('code')
+  if (code && pathname !== '/auth/callback') {
+    return NextResponse.redirect(new URL(`/auth/callback?code=${code}`, request.url))
+  }
   const termsAccepted = user?.user_metadata?.terms_accepted === true
 
   // Unauthenticated → block /app/* and /onboard
@@ -60,5 +66,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*', '/login', '/onboard'],
+  matcher: ['/', '/app/:path*', '/login', '/onboard'],
 }
