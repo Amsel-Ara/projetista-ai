@@ -4,11 +4,19 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // ── Forward auth codes immediately, before any Supabase setup ──────────────
-  // Supabase invite/magic-link emails redirect to the Site URL (landing page)
-  // with ?code=xxx. Catch it here and send it straight to /auth/callback.
+  // ── Let /auth/callback handle itself — no proxy interference ───────────────
+  // Supabase sends invite/magic-link emails directly to /auth/callback?code=xxx
+  // (when Site URL is set to https://projetista-ai.vercel.app/auth/callback).
+  // The route handler at /auth/callback exchanges the code — don't touch it here.
+  if (pathname === '/auth/callback') {
+    return NextResponse.next()
+  }
+
+  // ── Forward auth codes from any other page ───────────────────────────────
+  // If Supabase ever redirects to the root or another page with ?code=xxx,
+  // forward immediately to /auth/callback before any Supabase setup runs.
   const code = request.nextUrl.searchParams.get('code')
-  if (code && pathname !== '/auth/callback') {
+  if (code) {
     return NextResponse.redirect(new URL(`/auth/callback?code=${code}`, request.url))
   }
 
