@@ -18,7 +18,7 @@ export default async function DashboardPage() {
   const [clientsRes, activeAppsRes, pipelineRes] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('applications').select('id', { count: 'exact', head: true }).neq('status', 'Aprovado'),
-    supabase.from('applications').select('id, status, loan_type, clients(name)'),
+    supabase.from('applications').select('id, client_id, status, loan_type, clients(id, name)'),
   ])
 
   const totalClients = clientsRes.count ?? 0
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
                 {col.items.length === 0 ? (
                   <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontStyle: 'italic', padding: '8px 0' }}>Nenhuma</div>
                 ) : col.items.map((a) => (
-                  <Link key={a.id} href={`/app/crm/${(a.clients as any)?.id ?? '#'}`} style={{ textDecoration: 'none' }}>
+                  <Link key={a.id} href={`/app/crm/${a.client_id}`} style={{ textDecoration: 'none' }}>
                     <div className="pipeline-card" style={{ background: col.bg, border: `1px solid ${col.color}25`, borderRadius: '8px', padding: '10px 12px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '3px' }}>
                         {(a.clients as any)?.name ?? '—'}

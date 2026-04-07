@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type ClientData = {
@@ -79,6 +79,7 @@ const EXPIRY_DOT: Record<string, { color: string; label: string }> = {
 export default function ClientProfilePage() {
   const { clientId }  = useParams()
   const searchParams  = useSearchParams()
+  const router        = useRouter()
   const supabase      = createClient()
 
   const [clientData,   setClientData]  = useState<ClientData>(CLIENT_EMPTY)
@@ -144,6 +145,12 @@ export default function ClientProfilePage() {
   const APPLICATIONS = applications
 
   const [currentUser,  setCurrentUser]  = useState('')
+  const [editOpen,     setEditOpen]    = useState(false)
+  const [editForm,     setEditForm]    = useState({ name: '', whatsapp: '', email: '', cpf: '', city: '', state: '', farmName: '', farmAddress: '' })
+  const [editSaving,   setEditSaving]  = useState(false)
+  const [editError,    setEditError]   = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleting,     setDeleting]    = useState(false)
   const [tab,          setTab]         = useState<'overview' | 'docs' | 'data'>('overview')
   const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
@@ -190,6 +197,60 @@ export default function ClientProfilePage() {
     setNote('')
   }
 
+  function openEdit() {
+    setEditForm({
+      name:        clientData.name,
+      whatsapp:    clientData.whatsapp,
+      email:       clientData.email,
+      cpf:         clientData.cpf,
+      city:        clientData.city,
+      state:       clientData.state,
+      farmName:    clientData.farmName,
+      farmAddress: clientData.farmAddress,
+    })
+    setEditError('')
+    setDeleteConfirm(false)
+    setEditOpen(true)
+  }
+
+  async function handleEditSave() {
+    if (!editForm.name.trim()) { setEditError('Nome é obrigatório.'); return }
+    setEditSaving(true)
+    setEditError('')
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        name:         editForm.name,
+        whatsapp:     editForm.whatsapp || null,
+        email:        editForm.email    || null,
+        cpf:          editForm.cpf      || null,
+        city:         editForm.city     || null,
+        state:        editForm.state    || null,
+        farm_name:    editForm.farmName    || null,
+        farm_address: editForm.farmAddress || null,
+      })
+      .eq('id', clientId as string)
+    if (error) {
+      setEditError('Erro ao salvar. Tente novamente.')
+      setEditSaving(false)
+      return
+    }
+    // Refresh client data in-place
+    const parts = editForm.name.trim().split(/\s+/)
+    const initials = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : editForm.name.slice(0, 2).toUpperCase()
+    setClientData(prev => ({ ...prev, ...editForm, farmName: editForm.farmName, farmAddress: editForm.farmAddress, initials }))
+    setEditSaving(false)
+    setEditOpen(false)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    await supabase.from('clients').delete().eq('id', clientId as string)
+    router.push('/app/crm')
+  }
+
   /* ── Tab button ── */
   function TabBtn({ id, label }: { id: typeof tab; label: string }) {
     const active = tab === id
@@ -230,7 +291,7 @@ export default function ClientProfilePage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button style={{ padding: '9px 16px', border: '1.5px solid #e5e7eb', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
+            <button onClick={openEdit} style={{ padding: '9px 16px', border: '1.5px solid #e5e7eb', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
               Editar
             </button>
             <button
@@ -633,6 +694,101 @@ export default function ClientProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* EDIT CLIENT DRAWER                                         */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {editOpen && (
+        <div onClick={() => setEditOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 200 }} />
+      )}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: '440px',
+        background: '#fff', zIndex: 201, display: 'flex', flexDirection: 'column',
+        boxShadow: '-8px 0 48px rgba(0,0,0,0.16)',
+        transform: editOpen ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
+            Editar Cliente
+          </div>
+          <button onClick={() => setEditOpen(false)} style={{ border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ×
+          </button>
+        </div>
+
+        {/* Form */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {([
+            { field: 'name',        label: 'Nome completo',        placeholder: 'Ex: João da Silva',            required: true },
+            { field: 'cpf',         label: 'CPF',                  placeholder: '000.000.000-00' },
+            { field: 'whatsapp',    label: 'WhatsApp',             placeholder: '+55 (34) 99123-4567' },
+            { field: 'email',       label: 'Email',                placeholder: 'joao@fazenda.com.br' },
+            { field: 'city',        label: 'Município',            placeholder: 'Uberaba' },
+            { field: 'state',       label: 'Estado (UF)',          placeholder: 'MG' },
+            { field: 'farmName',    label: 'Nome da fazenda',      placeholder: 'Fazenda São João' },
+            { field: 'farmAddress', label: 'Endereço / Localização', placeholder: 'Rod. MG-050, km 120' },
+          ] as { field: keyof typeof editForm; label: string; placeholder: string; required?: boolean }[]).map(({ field, label, placeholder, required }) => (
+            <div key={field}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>
+                {label}{required && <span style={{ color: 'var(--brand-orange)', marginLeft: '2px' }}>*</span>}
+              </div>
+              <input
+                className="input-field"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                value={editForm[field]}
+                onChange={e => setEditForm(f => ({ ...f, [field]: field === 'state' ? e.target.value.toUpperCase() : e.target.value }))}
+                placeholder={placeholder}
+                maxLength={field === 'state' ? 2 : undefined}
+              />
+            </div>
+          ))}
+
+          {editError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>
+              {editError}
+            </div>
+          )}
+
+          {/* Delete zone */}
+          <div style={{ marginTop: '8px', borderTop: '1px solid var(--color-border)', paddingTop: '20px' }}>
+            {!deleteConfirm ? (
+              <button
+                onClick={() => setDeleteConfirm(true)}
+                style={{ width: '100%', padding: '10px', border: '1.5px solid #fecaca', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
+              >
+                Excluir cliente
+              </button>
+            ) : (
+              <div style={{ background: '#fef2f2', borderRadius: '10px', padding: '16px' }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#dc2626', marginBottom: '4px' }}>Tem certeza?</p>
+                <p style={{ fontSize: '12px', color: '#878C91', marginBottom: '14px', lineHeight: 1.5 }}>
+                  Esta ação é irreversível. O cliente e todas as suas solicitações serão excluídos permanentemente.
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setDeleteConfirm(false)} style={{ flex: 1, padding: '9px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '9px', border: 'none', borderRadius: '8px', background: '#dc2626', fontSize: '13px', fontWeight: 700, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer' }}>
+                    {deleting ? 'Excluindo…' : 'Confirmar exclusão'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={() => setEditOpen(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+            Cancelar
+          </button>
+          <button onClick={handleEditSave} disabled={editSaving} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: editSaving ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: editSaving ? 'not-allowed' : 'pointer' }}>
+            {editSaving ? 'Salvando…' : 'Salvar alterações'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

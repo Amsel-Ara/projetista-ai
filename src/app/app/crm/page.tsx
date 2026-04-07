@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -233,7 +232,8 @@ export default function CrmPage() {
               return (
                 <tr
                   key={c.id}
-                  style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', transition: 'background 0.1s' }}
+                  onClick={() => router.push(`/app/crm/${c.id}`)}
+                  style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', transition: 'background 0.1s', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-3)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
