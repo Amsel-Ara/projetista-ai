@@ -59,6 +59,7 @@ export default function CrmPage() {
   const [step,       setStep]       = useState<Step>(1)
   const [form,       setForm]       = useState(EMPTY_FORM)
   const [saving,     setSaving]     = useState(false)
+  const [saveError,  setSaveError]  = useState('')
 
   // Load clients from Supabase
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function CrmPage() {
   const commissionNum = parseFloat(form.commission.replace(',', '.')) || 0
   const projectedFee  = amountNum * commissionNum / 100
 
-  function openDrawer() { setForm(EMPTY_FORM); setStep(1); setDrawerOpen(true) }
+  function openDrawer() { setForm(EMPTY_FORM); setStep(1); setSaveError(''); setDrawerOpen(true) }
   function closeDrawer() { setDrawerOpen(false) }
   function update(field: keyof typeof EMPTY_FORM, value: string) {
     setForm(f => ({ ...f, [field]: value }))
@@ -115,6 +116,8 @@ export default function CrmPage() {
 
   async function handleSave(goToUpload: boolean) {
     setSaving(true)
+    setSaveError('')
+
     // Insert client
     const { data: clientData, error: clientErr } = await supabase
       .from('clients')
@@ -132,10 +135,15 @@ export default function CrmPage() {
       .select('id')
       .single()
 
-    if (clientErr || !clientData) { setSaving(false); return }
+    if (clientErr || !clientData) {
+      console.error('Erro ao criar cliente:', clientErr)
+      setSaveError(`Erro ao criar cliente: ${clientErr?.message ?? 'resposta vazia do servidor'}`)
+      setSaving(false)
+      return
+    }
 
     // Insert application
-    const { data: appData } = await supabase
+    const { error: appErr } = await supabase
       .from('applications')
       .insert({
         organization_id: ORG_ID,
@@ -149,10 +157,14 @@ export default function CrmPage() {
       .select('id')
       .single()
 
+    if (appErr) {
+      console.error('Erro ao criar solicitação:', appErr)
+      // Client was created — navigate anyway, app creation is non-fatal
+    }
+
     setSaving(false)
     closeDrawer()
-    const dest = `/app/crm/${clientData.id}${goToUpload ? '?tab=docs' : ''}`
-    router.push(dest)
+    router.push(`/app/crm/${clientData.id}${goToUpload ? '?tab=docs' : ''}`)
   }
 
   const step1Valid = form.name.trim().length > 0 && form.whatsapp.trim().length > 0
@@ -414,7 +426,13 @@ export default function CrmPage() {
         </div>
 
         {/* Drawer footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0 }}>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
+          {saveError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#dc2626', lineHeight: 1.5 }}>
+              {saveError}
+            </div>
+          )}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
           {step === 1 && (
             <>
               <button onClick={closeDrawer} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
@@ -450,6 +468,7 @@ export default function CrmPage() {
               </button>
             </>
           )}
+        </div>
         </div>
       </div>
     </div>
