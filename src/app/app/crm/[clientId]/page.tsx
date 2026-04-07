@@ -47,7 +47,17 @@ const DOC_TYPES = [
   { key: 'producao',     label: 'Laudo de produção',                    hasExpiry: false },
 ]
 
-// Documents will be populated when files are uploaded (Phase 3)
+const MOCK_UPLOADED: Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review'; expiry?: string }> = {
+  car:          { name: 'CAR_Fazenda_São_João.pdf',  status: 'completed',    expiry: '2026-12-31' },
+  itr:          { name: 'ITR_2024.pdf',              status: 'completed',    expiry: '2025-04-15' },
+  ccir:         { name: 'CCIR_2024_quitado.pdf',     status: 'completed',    expiry: '2026-05-01' },
+  matricula:    { name: 'Matricula_atualizada.pdf',  status: 'needs_review', expiry: '' },
+  sintegra:     { name: 'Sintegra_export.pdf',       status: 'processing',   expiry: '' },
+  arrendamento: { name: 'Contrato_arrendamento.pdf', status: 'completed',    expiry: '2027-06-30' },
+  sanitaria:    { name: 'Ficha_sanitaria.pdf',       status: 'completed',    expiry: '2026-09-01' },
+  licenca:      { name: 'Licenca_ambiental.pdf',     status: 'completed',    expiry: '2028-01-01' },
+  outorga:      { name: 'Outorga_agua.pdf',          status: 'completed',    expiry: '2027-03-15' },
+}
 
 const DOC_STATUS_CFG = {
   completed:    { label: 'Processado',    color: 'var(--status-approved-color)', bg: 'var(--status-approved-bg)',  icon: '✓' },
@@ -154,8 +164,10 @@ export default function ClientProfilePage() {
   const [tab,          setTab]         = useState<'overview' | 'docs' | 'data'>('overview')
   const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
-  const [uploaded,     setUploaded]    = useState<Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review'; expiry?: string }>>({})
-  const [expiryDates,  setExpiryDates] = useState<Record<string, string>>({})
+  const [uploaded,     setUploaded]    = useState(MOCK_UPLOADED)
+  const [expiryDates,  setExpiryDates] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(MOCK_UPLOADED).map(([k, v]) => [k, v.expiry ?? '']))
+  )
   const [note,         setNote]        = useState('')
   const [notes,        setNotes]       = useState<{ author: string; date: string; text: string }[]>([])
   const [appStatus,    setAppStatus]   = useState<Record<string, string>>(

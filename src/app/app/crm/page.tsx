@@ -215,7 +215,7 @@ export default function CrmPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1.5px solid var(--color-border-subtle)' }}>
-              {['Cliente', 'Comissão Total', 'Localidade', 'Solicitações', 'Última atividade', 'Status', ''].map((h, i) => (
+              {['Cliente', 'Comissão Total', 'Localidade', 'Solicitações', 'Última atividade', 'Status'].map((h, i) => (
                 <th key={i} style={{ padding: '13px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                   {h}
                 </th>
@@ -251,11 +251,6 @@ export default function CrmPage() {
                   <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--color-text-primary)', fontWeight: 600 }}>{c.apps}</td>
                   <td style={{ padding: '14px 16px', fontSize: '13px', color: 'var(--color-text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{c.lastActivity}</td>
                   <td style={{ padding: '14px 16px' }}><span className={cfg.cls}>{c.status}</span></td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <Link href={`/app/crm/${c.id}`} style={{ textDecoration: 'none', color: 'var(--brand-orange)', fontSize: '13px', fontWeight: 600 }}>
-                      Ver →
-                    </Link>
-                  </td>
                 </tr>
               )
             })}
