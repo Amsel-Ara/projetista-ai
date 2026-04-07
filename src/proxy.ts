@@ -2,6 +2,16 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // ── Forward auth codes immediately, before any Supabase setup ──────────────
+  // Supabase invite/magic-link emails redirect to the Site URL (landing page)
+  // with ?code=xxx. Catch it here and send it straight to /auth/callback.
+  const code = request.nextUrl.searchParams.get('code')
+  if (code && pathname !== '/auth/callback') {
+    return NextResponse.redirect(new URL(`/auth/callback?code=${code}`, request.url))
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   // Skip auth if Supabase is not yet configured
@@ -30,13 +40,6 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { pathname } = request.nextUrl
-
-  // Forward Supabase auth codes from any page (e.g. landing page) to the callback handler
-  const code = request.nextUrl.searchParams.get('code')
-  if (code && pathname !== '/auth/callback') {
-    return NextResponse.redirect(new URL(`/auth/callback?code=${code}`, request.url))
-  }
   const termsAccepted = user?.user_metadata?.terms_accepted === true
 
   // Unauthenticated → block /app/* and /onboard
@@ -66,5 +69,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/app/:path*', '/login', '/onboard'],
+  matcher: [
+    // Run on all paths except Next.js internals and static files
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ],
 }
