@@ -588,18 +588,13 @@ export default function ClientProfilePage() {
                         )}
                       </div>
 
-                      {/* Expiry date field */}
-                      {doc.hasExpiry && up && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          {est !== 'none' && (
-                            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dot.color, flexShrink: 0 }} title={dot.label} />
-                          )}
-                          <input
-                            type="date"
-                            value={date}
-                            onChange={e => setExpiryDates(prev => ({ ...prev, [doc.key]: e.target.value }))}
-                            style={{ fontSize: '11px', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '3px 6px', color: 'var(--color-text-secondary)', background: '#fff', cursor: 'pointer', width: '120px' }}
-                          />
+                      {/* Expiry badge */}
+                      {doc.hasExpiry && up && date && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, background: est === 'expired' ? '#fef2f2' : est === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '3px 10px' }}>
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dot.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: dot.color, whiteSpace: 'nowrap' }}>
+                            {dot.label || 'Válido'} · {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </span>
                         </div>
                       )}
 
