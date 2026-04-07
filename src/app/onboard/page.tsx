@@ -146,15 +146,17 @@ export default function OnboardPage() {
             marginBottom: '24px',
             fontSize: '14px',
             color: '#010205',
-            lineHeight: 1.5,
+            lineHeight: 1.6,
           }}>
             <input
               type="checkbox"
               checked={accepted}
               onChange={e => setAccepted(e.target.checked)}
-              style={{ marginTop: '2px', accentColor: '#B95B37', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }}
+              style={{ marginTop: '3px', accentColor: '#B95B37', width: '16px', height: '16px', flexShrink: 0, cursor: 'pointer' }}
             />
-            Li e aceito os <strong style={{ marginLeft: '4px' }}>Termos de Uso</strong> e a <strong style={{ marginLeft: '4px' }}>Política de Privacidade</strong> da Projetista.Ai
+            <span>
+              Li e aceito os <strong>Termos de Uso</strong> e a <strong>Política de Privacidade</strong> da Projetista.Ai
+            </span>
           </label>
 
           {/* Error */}
