@@ -4,11 +4,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // ── Let /auth/callback handle itself — no proxy interference ───────────────
-  // Supabase sends invite/magic-link emails directly to /auth/callback?code=xxx
-  // (when Site URL is set to https://projetista-ai.vercel.app/auth/callback).
-  // The route handler at /auth/callback exchanges the code — don't touch it here.
-  if (pathname === '/auth/callback') {
+  // ── Let auth routes handle themselves — no proxy interference ──────────────
+  // /auth/callback  — HTML shim that reads ?code= or #access_token= and
+  //                   redirects to /auth/confirm
+  // /auth/confirm   — client page that exchanges the code/token via browser
+  //                   client and sets the session cookie
+  if (pathname === '/auth/callback' || pathname === '/auth/confirm') {
     return NextResponse.next()
   }
 

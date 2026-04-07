@@ -2,6 +2,18 @@
 
 import { useEffect, useState } from 'react'
 
+// If Supabase redirects an invite/magic-link to the site root (when Site URL
+// is set to https://projetista-ai.vercel.app without /auth/callback), the
+// token lands as a hash fragment. Forward it to /auth/callback immediately.
+if (typeof window !== 'undefined') {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  if (hash.get('access_token') && hash.get('refresh_token')) {
+    window.location.replace(
+      '/auth/callback#' + window.location.hash.replace(/^#/, '')
+    )
+  }
+}
+
 const DEADLINE = new Date('2026-06-30T23:59:59-03:00')
 
 function pad(n: number) { return n < 10 ? '0' + n : String(n) }
