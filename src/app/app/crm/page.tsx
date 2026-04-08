@@ -142,29 +142,9 @@ export default function CrmPage() {
       return
     }
 
-    // Insert application
-    const { error: appErr } = await supabase
-      .from('applications')
-      .insert({
-        organization_id: ORG_ID,
-        client_id:       clientData.id,
-        loan_type:       form.loanType,
-        bank:            form.bank,
-        amount:          amountNum || null,
-        commission_pct:  commissionNum || null,
-        status:          'Rascunho',
-      })
-      .select('id')
-      .single()
-
-    if (appErr) {
-      console.error('Erro ao criar solicitação:', appErr)
-      // Client was created — navigate anyway, app creation is non-fatal
-    }
-
     setSaving(false)
     closeDrawer()
-    router.push(`/app/crm/${clientData.id}${goToUpload ? '?tab=docs' : ''}`)
+    router.push(`/app/crm/${clientData.id}`)
   }
 
   const step1Valid = form.name.trim().length > 0 && form.whatsapp.trim().length > 0

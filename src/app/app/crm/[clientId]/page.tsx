@@ -30,6 +30,10 @@ const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
   'Aprovado':           { color: '#16a34a', bg: '#f0fdf4',  cls: 'badge badge-approved' },
 }
 
+const ORG_ID     = 'a0000000-0000-0000-0000-000000000001'
+const LOAN_TYPES = ['Pronaf Custeio', 'Pronaf Investimento', 'Pronamp', 'BNDES Agro', 'FNE Rural']
+const BANKS      = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
+
 /* ─── Document checklist ─────────────────────────────────────────────────── */
 const DOC_TYPES = [
   { key: 'car',          label: 'Recibo do CAR',                        hasExpiry: true },
@@ -173,6 +177,10 @@ export default function ClientProfilePage() {
   const [appStatus,    setAppStatus]   = useState<Record<string, string>>(
     Object.fromEntries(APPLICATIONS.map(a => [a.id, a.status]))
   )
+  const [newSolDrawer, setNewSolDrawer] = useState(false)
+  const [newSolForm,   setNewSolForm]   = useState({ loanType: 'Pronaf Custeio', bank: 'Banco do Brasil', amount: '', commission: '' })
+  const [newSolSaving, setNewSolSaving] = useState(false)
+  const [newSolError,  setNewSolError]  = useState('')
 
   // Read ?tab=docs from URL (after "Salvar e fazer upload")
   useEffect(() => {
@@ -263,6 +271,45 @@ export default function ClientProfilePage() {
     router.push('/app/crm')
   }
 
+  async function handleCreateSol() {
+    setNewSolSaving(true)
+    setNewSolError('')
+    const amountNum     = parseFloat(newSolForm.amount.replace(/\./g, '').replace(',', '.')) || null
+    const commissionNum = parseFloat(newSolForm.commission.replace(',', '.')) || null
+    const { data, error } = await supabase
+      .from('applications')
+      .insert({
+        organization_id: ORG_ID,
+        client_id:       clientId as string,
+        loan_type:       newSolForm.loanType,
+        bank:            newSolForm.bank,
+        amount:          amountNum,
+        commission_pct:  commissionNum,
+        status:          'Rascunho',
+      })
+      .select('id, loan_type, bank, status, created_at, amount, commission_pct')
+      .single()
+    if (error) { setNewSolError(error.message); setNewSolSaving(false); return }
+    const newApp: AppData = {
+      id:          data.id,
+      program:     data.loan_type     ?? '',
+      bank:        data.bank          ?? '',
+      status:      data.status        ?? 'Rascunho',
+      created:     new Date(data.created_at).toLocaleDateString('pt-BR'),
+      amount:      data.amount        ?? 0,
+      commission:  data.commission_pct ?? 0,
+      docsComplete: 0,
+      docsTotal:   DOC_TYPES.length,
+    }
+    setApplications(prev => [...prev, newApp])
+    setActiveAppId(data.id)
+    setAppStatus(prev => ({ ...prev, [data.id]: 'Rascunho' }))
+    setNewSolDrawer(false)
+    setNewSolForm({ loanType: 'Pronaf Custeio', bank: 'Banco do Brasil', amount: '', commission: '' })
+    setNewSolSaving(false)
+    setTab('docs')
+  }
+
   /* ── Tab button ── */
   function TabBtn({ id, label }: { id: typeof tab; label: string }) {
     const active = tab === id
@@ -307,7 +354,7 @@ export default function ClientProfilePage() {
               Editar
             </button>
             <button
-              onClick={() => setTab('docs')}
+              onClick={() => setNewSolDrawer(true)}
               style={{ padding: '9px 16px', border: 'none', borderRadius: '8px', background: '#B95B37', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
             >
               + Nova Solicitação
@@ -358,7 +405,7 @@ export default function ClientProfilePage() {
             <div style={{ background: '#fff', borderRadius: '14px', padding: '22px 24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205' }}>Solicitações</div>
-                <button onClick={() => setTab('docs')} style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-orange)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <button onClick={() => setNewSolDrawer(true)} style={{ fontSize: '12px', fontWeight: 600, color: 'var(--brand-orange)', background: 'none', border: 'none', cursor: 'pointer' }}>
                   + Nova
                 </button>
               </div>
@@ -476,7 +523,23 @@ export default function ClientProfilePage() {
       {/* ══════════════════════════════════════════════════════════ */}
       {/* TAB 2 — DOCUMENTOS                                        */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {tab === 'docs' && (
+      {tab === 'docs' && APPLICATIONS.length === 0 && (
+        <div style={{ background: '#fff', borderRadius: '14px', padding: '60px 24px', textAlign: 'center', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
+          <p style={{ fontWeight: 700, fontSize: '16px', color: '#010205', marginBottom: '6px' }}>Nenhuma solicitação ainda</p>
+          <p style={{ fontSize: '13px', color: '#878C91', marginBottom: '24px', lineHeight: 1.6 }}>
+            Crie uma solicitação de crédito para começar a enviar documentos.
+          </p>
+          <button
+            onClick={() => setNewSolDrawer(true)}
+            style={{ padding: '10px 22px', border: 'none', borderRadius: '8px', background: '#B95B37', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            + Nova Solicitação
+          </button>
+        </div>
+      )}
+
+      {tab === 'docs' && APPLICATIONS.length > 0 && (
         <div>
           {/* Application selector + header */}
           <div style={{ background: '#fff', borderRadius: '14px', padding: '20px 24px', marginBottom: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -494,7 +557,7 @@ export default function ClientProfilePage() {
                 ))}
               </select>
               <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Criado em {activeApp.created}
+                Criado em {activeApp?.created}
               </div>
             </div>
 
@@ -505,7 +568,7 @@ export default function ClientProfilePage() {
                 <div style={{ width: '120px', height: '5px', background: 'var(--color-surface-2)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ width: `${appPct}%`, height: '100%', background: appPct === 100 ? '#16a34a' : 'var(--brand-orange)', borderRadius: '3px', transition: 'width 0.3s' }} />
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '3px' }}>{activeApp.docsComplete} de {activeApp.docsTotal} docs</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '3px' }}>{activeApp?.docsComplete ?? 0} de {activeApp?.docsTotal ?? 0} docs</div>
               </div>
 
               {/* Status selector */}
@@ -701,6 +764,64 @@ export default function ClientProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* NOVA SOLICITAÇÃO DRAWER                                    */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {newSolDrawer && (
+        <div onClick={() => setNewSolDrawer(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 200 }} />
+      )}
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: '440px',
+        background: '#fff', zIndex: 201, display: 'flex', flexDirection: 'column',
+        boxShadow: '-8px 0 48px rgba(0,0,0,0.16)',
+        transform: newSolDrawer ? 'translateX(0)' : 'translateX(100%)',
+        transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+      }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--color-text-primary)', fontFamily: 'var(--font-display)' }}>
+            Nova Solicitação
+          </div>
+          <button onClick={() => setNewSolDrawer(false)} style={{ border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ×
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Tipo de crédito</div>
+            <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.loanType} onChange={e => setNewSolForm(f => ({ ...f, loanType: e.target.value }))}>
+              {LOAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Banco</div>
+            <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.bank} onChange={e => setNewSolForm(f => ({ ...f, bank: e.target.value }))}>
+              {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Valor solicitado (R$)</div>
+            <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.amount} onChange={e => setNewSolForm(f => ({ ...f, amount: e.target.value }))} placeholder="500.000" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Comissão (%)</div>
+            <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} type="number" step="0.1" min="0" max="20" value={newSolForm.commission} onChange={e => setNewSolForm(f => ({ ...f, commission: e.target.value }))} placeholder="2.5" />
+          </div>
+          {newSolError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>
+              {newSolError}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0 }}>
+          <button onClick={() => setNewSolDrawer(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+            Cancelar
+          </button>
+          <button onClick={handleCreateSol} disabled={newSolSaving} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: newSolSaving ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: newSolSaving ? 'not-allowed' : 'pointer' }}>
+            {newSolSaving ? 'Criando…' : 'Criar Solicitação'}
+          </button>
+        </div>
+      </div>
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* EDIT CLIENT DRAWER                                         */}
