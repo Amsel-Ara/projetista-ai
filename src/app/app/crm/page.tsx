@@ -28,15 +28,11 @@ const STATUS_CFG: Record<string, { cls: string }> = {
   'Aprovado':          { cls: 'badge badge-approved' },
 }
 
-const LOAN_TYPES = ['Pronaf Custeio', 'Pronaf Investimento', 'Pronamp', 'BNDES Agro', 'FNE Rural']
-const BANKS      = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
-
-type Step = 1 | 2 | 3
+type Step = 1 | 2
 
 const EMPTY_FORM = {
   name: '', whatsapp: '', email: '', city: '', state: '',
   farmName: '', farmAddress: '',
-  loanType: 'Pronaf Custeio', bank: 'Banco do Brasil', amount: '', commission: '',
 }
 
 function FieldLabel({ text, required }: { text: string; required?: boolean }) {
@@ -104,10 +100,6 @@ export default function CrmPage() {
     return (matchName || matchCpf) && matchFilter
   })
 
-  const amountNum     = parseFloat(form.amount.replace(/\./g, '').replace(',', '.')) || 0
-  const commissionNum = parseFloat(form.commission.replace(',', '.')) || 0
-  const projectedFee  = amountNum * commissionNum / 100
-
   function openDrawer() { setForm(EMPTY_FORM); setStep(1); setSaveError(''); setDrawerOpen(true) }
   function closeDrawer() { setDrawerOpen(false) }
   function update(field: keyof typeof EMPTY_FORM, value: string) {
@@ -144,7 +136,7 @@ export default function CrmPage() {
 
     setSaving(false)
     closeDrawer()
-    router.push(`/app/crm/${clientData.id}`)
+    router.push(`/app/crm/${clientData.id}${goToUpload ? '?tab=docs' : ''}`)
   }
 
   const step1Valid = form.name.trim().length > 0 && form.whatsapp.trim().length > 0
@@ -247,9 +239,9 @@ export default function CrmPage() {
       {/* NOVO CLIENTE DRAWER                       */}
       {/* ══════════════════════════════════════════ */}
 
-      {/* Backdrop */}
+      {/* Backdrop — no onClick: closing only via Cancel/X buttons */}
       {drawerOpen && (
-        <div onClick={closeDrawer} style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 200 }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 200 }} />
       )}
 
       {/* Drawer panel */}
@@ -268,7 +260,7 @@ export default function CrmPage() {
               Novo Cliente
             </div>
             <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-              Passo {step} de 3
+              Passo {step} de 2
             </div>
           </div>
           <button onClick={closeDrawer} style={{ border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -276,11 +268,11 @@ export default function CrmPage() {
           </button>
         </div>
 
-        {/* Step progress */}
+        {/* Step progress — 2 steps */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', flexShrink: 0 }}>
-          {([{ n: 1, label: 'Contato' }, { n: 2, label: 'Propriedade' }, { n: 3, label: 'Crédito' }] as { n: Step; label: string }[]).map(({ n, label }, idx) => (
+          {([{ n: 1, label: 'Contato' }, { n: 2, label: 'Propriedade' }] as { n: Step; label: string }[]).map(({ n, label }, idx) => (
             <div key={n} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', position: 'relative' }}>
-              {idx < 2 && (
+              {idx < 1 && (
                 <div style={{ position: 'absolute', top: '13px', left: '50%', width: '100%', height: '2px', background: step > n ? 'var(--brand-orange)' : 'var(--color-border)', zIndex: 0 }} />
               )}
               <div style={{
@@ -356,49 +348,6 @@ export default function CrmPage() {
               </div>
             </div>
           )}
-
-          {step === 3 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              <div>
-                <FieldLabel text="Tipo de crédito" />
-                <select className="input-field" style={inputStyle} value={form.loanType}
-                  onChange={e => update('loanType', e.target.value)}>
-                  {LOAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div>
-                <FieldLabel text="Banco" />
-                <select className="input-field" style={inputStyle} value={form.bank}
-                  onChange={e => update('bank', e.target.value)}>
-                  {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div>
-                <FieldLabel text="Valor solicitado (R$)" />
-                <input className="input-field" style={inputStyle} value={form.amount}
-                  onChange={e => update('amount', e.target.value)} placeholder="500.000" />
-              </div>
-              <div>
-                <FieldLabel text="Comissão (%)" />
-                <input className="input-field" style={inputStyle} value={form.commission}
-                  type="number" step="0.1" min="0" max="20"
-                  onChange={e => update('commission', e.target.value)} placeholder="2.5" />
-              </div>
-              {projectedFee > 0 && (
-                <div style={{ background: 'var(--brand-orange-bg)', borderRadius: '10px', padding: '14px 16px', borderLeft: '3px solid var(--brand-orange)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--brand-orange)', letterSpacing: '0.5px', marginBottom: '4px', textTransform: 'uppercase' }}>
-                    Comissão Estimada
-                  </div>
-                  <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--brand-orange)', fontFamily: 'var(--font-display)', letterSpacing: '-0.5px' }}>
-                    R$ {projectedFee.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--brand-orange)', opacity: 0.75, marginTop: '2px' }}>
-                    {form.commission}% sobre R$ {form.amount}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Drawer footer */}
@@ -408,43 +357,34 @@ export default function CrmPage() {
               {saveError}
             </div>
           )}
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          {step === 1 && (
-            <>
-              <button onClick={closeDrawer} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
-                Cancelar
-              </button>
-              <button onClick={() => setStep(2)} disabled={!step1Valid}
-                style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: step1Valid ? 'pointer' : 'not-allowed', opacity: step1Valid ? 1 : 0.45 }}>
-                Próximo →
-              </button>
-            </>
-          )}
-          {step === 2 && (
-            <>
-              <button onClick={() => setStep(1)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
-                ← Voltar
-              </button>
-              <button onClick={() => setStep(3)} disabled={!step2Valid}
-                style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: step2Valid ? 'pointer' : 'not-allowed', opacity: step2Valid ? 1 : 0.45 }}>
-                Próximo →
-              </button>
-            </>
-          )}
-          {step === 3 && (
-            <>
-              <button onClick={() => setStep(2)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
-                ← Voltar
-              </button>
-              <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', color: 'var(--color-text-primary)' }}>
-                Salvar sem upload
-              </button>
-              <button onClick={() => handleSave(true)} disabled={saving} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: saving ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-                {saving ? 'Salvando...' : 'Salvar e fazer upload'}
-              </button>
-            </>
-          )}
-        </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            {step === 1 && (
+              <>
+                <button onClick={closeDrawer} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+                  Cancelar
+                </button>
+                <button onClick={() => setStep(2)} disabled={!step1Valid}
+                  style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: step1Valid ? 'pointer' : 'not-allowed', opacity: step1Valid ? 1 : 0.45 }}>
+                  Próximo →
+                </button>
+              </>
+            )}
+            {step === 2 && (
+              <>
+                <button onClick={() => setStep(1)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+                  ← Voltar
+                </button>
+                <button onClick={() => handleSave(false)} disabled={saving || !step2Valid}
+                  style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: (saving || !step2Valid) ? 'not-allowed' : 'pointer', color: 'var(--color-text-primary)', opacity: step2Valid ? 1 : 0.45 }}>
+                  Salvar sem upload
+                </button>
+                <button onClick={() => handleSave(true)} disabled={saving || !step2Valid}
+                  style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: (saving || !step2Valid) ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: (saving || !step2Valid) ? 'not-allowed' : 'pointer' }}>
+                  {saving ? 'Salvando...' : 'Salvar e fazer upload'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
