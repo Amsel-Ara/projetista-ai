@@ -18,18 +18,22 @@ export default async function DashboardPage() {
   const [clientsRes, activeAppsRes, pipelineRes] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('applications').select('id', { count: 'exact', head: true }).neq('status', 'Aprovado'),
-    supabase.from('applications').select('id, client_id, status, loan_type, clients(id, name)'),
+    supabase.from('applications').select('id, client_id, status, loan_type, amount, commission_pct, clients(id, name)'),
   ])
 
   const totalClients = clientsRes.count ?? 0
   const activeApps   = activeAppsRes.count ?? 0
   const allApps      = pipelineRes.data ?? []
 
-  // Group applications by status for pipeline
-  const pipeline = PIPELINE_STATUSES.map(cfg => ({
-    ...cfg,
-    items: allApps.filter(a => a.status === cfg.status),
-  }))
+  // Group applications by status for pipeline; pre-compute commission per item
+  const pipeline = PIPELINE_STATUSES.map(cfg => {
+    const items = allApps.filter(a => a.status === cfg.status).map(a => ({
+      ...a,
+      commission: ((a.amount ?? 0) * (a.commission_pct ?? 0)) / 100,
+    }))
+    const colTotal = items.reduce((sum, a) => sum + a.commission, 0)
+    return { ...cfg, items, colTotal }
+  })
 
   const STATS = [
     {
@@ -110,7 +114,8 @@ export default async function DashboardPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
           {pipeline.map((col, i) => (
-            <div key={i} style={{ minWidth: '140px' }}>
+            <div key={i} style={{ minWidth: '140px', display: 'flex', flexDirection: 'column' }}>
+              {/* Column header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: col.color, flexShrink: 0 }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-primary)', flex: 1 }}>{col.status}</span>
@@ -118,7 +123,9 @@ export default async function DashboardPage() {
                   {col.items.length}
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+              {/* Cards */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
                 {col.items.length === 0 ? (
                   <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontStyle: 'italic', padding: '8px 0' }}>Nenhuma</div>
                 ) : col.items.map((a) => (
@@ -127,10 +134,29 @@ export default async function DashboardPage() {
                       <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: '3px' }}>
                         {(a.clients as any)?.name ?? '—'}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{a.loan_type}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginBottom: a.commission > 0 ? '5px' : '0' }}>
+                        {a.loan_type}
+                      </div>
+                      {a.commission > 0 && (
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: col.color }}>
+                          R$ {a.commission.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                      )}
                     </div>
                   </Link>
                 ))}
+              </div>
+
+              {/* Column total */}
+              <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: `1px solid ${col.color}30` }}>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-secondary)', letterSpacing: '0.4px', textTransform: 'uppercase', marginBottom: '2px' }}>
+                  Total
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: col.colTotal > 0 ? col.color : 'var(--color-text-secondary)', fontFamily: 'var(--font-display)' }}>
+                  {col.colTotal > 0
+                    ? `R$ ${col.colTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                    : '—'}
+                </div>
               </div>
             </div>
           ))}
