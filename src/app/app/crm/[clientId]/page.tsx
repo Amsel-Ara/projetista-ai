@@ -56,21 +56,34 @@ const DOC_STATUS_CFG = {
 // Notes and extracted fields are loaded from Supabase (Phases 3+)
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-function expiryStatus(dateStr: string): 'ok' | 'soon' | 'expired' | 'none' {
-  if (!dateStr) return 'none'
+function expiryDaysLeft(dateStr: string): number {
+  if (!dateStr) return Infinity
   const expiry = new Date(dateStr)
   const today  = new Date()
-  const diff   = (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  return (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+}
+
+function expiryStatus(dateStr: string): 'ok' | 'soon' | 'expired' | 'none' {
+  if (!dateStr) return 'none'
+  const diff = expiryDaysLeft(dateStr)
   if (diff < 0)  return 'expired'
   if (diff < 30) return 'soon'
   return 'ok'
 }
 
-const EXPIRY_DOT: Record<string, { color: string; label: string }> = {
-  ok:      { color: '#16a34a', label: 'Válido' },
-  soon:    { color: '#d97706', label: 'Vence em breve' },
-  expired: { color: '#dc2626', label: 'Vencido' },
-  none:    { color: '#d1d5db', label: '' },
+function expiryLabel(dateStr: string): string {
+  if (!dateStr) return ''
+  const diff = expiryDaysLeft(dateStr)
+  if (diff < 0)  return 'Vencido'
+  if (diff < 30) return `Vence em ${Math.ceil(diff)} dias`
+  return 'Válido'
+}
+
+const EXPIRY_COLOR: Record<string, string> = {
+  ok:      '#16a34a',
+  soon:    '#d97706',
+  expired: '#dc2626',
+  none:    '#d1d5db',
 }
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
@@ -169,6 +182,12 @@ export default function ClientProfilePage() {
   const [newSolError,   setNewSolError]   = useState('')
   const [programs,      setPrograms]      = useState<CreditProgram[]>([])
   const [docChecklist,  setDocChecklist]  = useState<ChecklistItem[]>([])
+  const [editSolId,     setEditSolId]     = useState<string | null>(null)
+  const [editSolForm,   setEditSolForm]   = useState({ amount: '', commission: '' })
+  const [editSolSaving, setEditSolSaving] = useState(false)
+  const [editSolError,  setEditSolError]  = useState('')
+  const [deleteSolId,   setDeleteSolId]   = useState<string | null>(null)
+  const [deletingSol,   setDeletingSol]   = useState(false)
 
   // Read ?tab=docs from URL (after "Salvar e fazer upload")
   useEffect(() => {
@@ -343,6 +362,47 @@ export default function ClientProfilePage() {
     setTab('docs')
   }
 
+  function openEditSol(app: AppData) {
+    setEditSolForm({
+      amount:     app.amount     > 0 ? app.amount.toLocaleString('pt-BR')     : '',
+      commission: app.commission > 0 ? app.commission.toString()              : '',
+    })
+    setEditSolError('')
+    setEditSolId(app.id)
+  }
+
+  async function handleEditSolSave() {
+    if (!editSolId) return
+    setEditSolSaving(true)
+    setEditSolError('')
+    const amountNum = parseFloat(editSolForm.amount.replace(/\./g, '').replace(',', '.')) || null
+    const commNum   = parseFloat(editSolForm.commission.replace(',', '.')) || null
+    const { error } = await supabase
+      .from('applications')
+      .update({ amount: amountNum, commission_pct: commNum })
+      .eq('id', editSolId)
+    if (error) { setEditSolError(error.message); setEditSolSaving(false); return }
+    setApplications(prev => prev.map(a =>
+      a.id === editSolId ? { ...a, amount: amountNum ?? 0, commission: commNum ?? 0 } : a
+    ))
+    setEditSolId(null)
+    setEditSolSaving(false)
+  }
+
+  async function handleDeleteSol() {
+    if (!deleteSolId) return
+    setDeletingSol(true)
+    await supabase.from('applications').delete().eq('id', deleteSolId)
+    const remaining = applications.filter(a => a.id !== deleteSolId)
+    setApplications(remaining)
+    setDeleteSolId(null)
+    setDeletingSol(false)
+    if (activeAppId === deleteSolId) {
+      setActiveAppId(remaining[0]?.id ?? '')
+      setDocChecklist(remaining[0]?.docChecklist ?? [])
+    }
+  }
+
   /* ── Tab button ── */
   function TabBtn({ id, label }: { id: typeof tab; label: string }) {
     const active = tab === id
@@ -399,7 +459,7 @@ export default function ClientProfilePage() {
       {/* ── Tabs ── */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '20px' }}>
         <TabBtn id="overview" label="Visão Geral" />
-        <TabBtn id="docs"     label="Documentos" />
+        <TabBtn id="docs"     label="Solicitações" />
         <TabBtn id="data"     label="Dados da Solicitação" />
       </div>
 
@@ -529,13 +589,14 @@ export default function ClientProfilePage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {expiringDocs.map(doc => {
-                    const st = expiryStatus(expiryDates[doc.doc_key] ?? '')
-                    const dotInfo = EXPIRY_DOT[st]
+                    const dateStr = expiryDates[doc.doc_key] ?? ''
+                    const st      = expiryStatus(dateStr)
+                    const color   = EXPIRY_COLOR[st]
                     return (
                       <div key={doc.doc_key} onClick={() => setTab('docs')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: st === 'expired' ? '#fef2f2' : '#fffbeb', cursor: 'pointer' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotInfo.color, flexShrink: 0 }} />
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
                         <div style={{ flex: 1, fontSize: '12px', fontWeight: 600, color: '#010205' }}>{doc.label}</div>
-                        <div style={{ fontSize: '11px', color: dotInfo.color, fontWeight: 600 }}>{dotInfo.label}</div>
+                        <div style={{ fontSize: '11px', color, fontWeight: 600 }}>{expiryLabel(dateStr)}</div>
                       </div>
                     )
                   })}
@@ -594,7 +655,7 @@ export default function ClientProfilePage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               {/* Progress */}
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '4px' }}>{appPct}% completo</div>
@@ -613,14 +674,28 @@ export default function ClientProfilePage() {
                 {Object.keys(STATUS_CFG).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
 
+              {/* Edit solicitação */}
+              <button
+                onClick={() => activeApp && openEditSol(activeApp)}
+                style={{ padding: '8px 14px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}
+              >
+                Editar
+              </button>
+
+              {/* Delete solicitação */}
+              <button
+                onClick={() => activeApp && setDeleteSolId(activeApp.id)}
+                style={{ padding: '8px 14px', border: '1.5px solid #fecaca', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}
+              >
+                Excluir
+              </button>
+
               <button className="btn-secondary">Gerar Excel</button>
             </div>
           </div>
 
-          {/* Two-column: docs + notes */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px' }}>
-
-            {/* Left: upload + checklist */}
+          {/* Full-width: upload + checklist */}
+          <div>
             <div>
               {/* Upload zone */}
               <div
@@ -662,96 +737,122 @@ export default function ClientProfilePage() {
                   <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
                     Carregando checklist…
                   </div>
-                ) : docChecklist.map((doc, i) => {
-                  const up   = uploaded[doc.doc_key]
-                  const cfg  = up ? DOC_STATUS_CFG[up.status] : null
-                  const date = expiryDates[doc.doc_key] ?? ''
-                  const est  = doc.has_expiry ? expiryStatus(date) : 'none'
-                  const dot  = EXPIRY_DOT[est]
+                ) : (
+                  /* Table layout: status | label+file | expiry | upload-status — all columns aligned */
+                  <div style={{ display: 'table', width: '100%', borderCollapse: 'collapse' }}>
+                    {docChecklist.map((doc, i) => {
+                      const up    = uploaded[doc.doc_key]
+                      const cfg   = up ? DOC_STATUS_CFG[up.status] : null
+                      const date  = expiryDates[doc.doc_key] ?? ''
+                      const est   = doc.has_expiry ? expiryStatus(date) : 'none'
+                      const color = EXPIRY_COLOR[est]
 
-                  return (
-                    <div key={doc.doc_key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none' }}>
-                      {/* Required level indicator */}
-                      <div style={{
-                        width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '11px', fontWeight: 700,
-                        background: cfg ? cfg.bg : 'var(--color-surface-2)',
-                        color: cfg ? cfg.color : 'var(--color-border)',
-                        border: cfg ? 'none' : '2px solid var(--color-border)',
-                      }}>
-                        {cfg ? cfg.icon : ''}
-                      </div>
-
-                      {/* Label + filename */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: up ? 600 : 400, color: up ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                            {doc.label}
-                          </span>
-                          {doc.required_level === 'conditional' && (
-                            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#fffbeb', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>condicional</span>
-                          )}
-                        </div>
-                        {up && (
-                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {up.name}
+                      return (
+                        <div key={doc.doc_key} style={{ display: 'table-row' }}>
+                          {/* Status circle */}
+                          <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '36px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '12px' }}>
+                            <div style={{
+                              width: '22px', height: '22px', borderRadius: '50%',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '11px', fontWeight: 700,
+                              background: cfg ? cfg.bg : 'var(--color-surface-2)',
+                              color: cfg ? cfg.color : 'var(--color-border)',
+                              border: cfg ? 'none' : '2px solid var(--color-border)',
+                            }}>
+                              {cfg ? cfg.icon : ''}
+                            </div>
                           </div>
-                        )}
-                      </div>
 
-                      {/* Expiry badge */}
-                      {doc.has_expiry && up && date && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, background: est === 'expired' ? '#fef2f2' : est === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '3px 10px' }}>
-                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dot.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: dot.color, whiteSpace: 'nowrap' }}>
-                            {dot.label || 'Válido'} · {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                          </span>
+                          {/* Label + filename — flex-grows */}
+                          <div style={{ display: 'table-cell', verticalAlign: 'middle', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: up ? 600 : 400, color: up ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                                {doc.label}
+                              </span>
+                              {doc.required_level === 'conditional' && (
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#fffbeb', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>condicional</span>
+                              )}
+                            </div>
+                            {up && (
+                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                                {up.name}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Expiry — fixed width column, aligned */}
+                          <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '220px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '12px' }}>
+                            {doc.has_expiry && date ? (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: est === 'expired' ? '#fef2f2' : est === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '3px 10px' }}>
+                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                <span style={{ fontSize: '11px', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
+                                  {expiryLabel(date)} · {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </span>
+                              </div>
+                            ) : doc.has_expiry ? (
+                              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>—</span>
+                            ) : null}
+                          </div>
+
+                          {/* Upload status badge */}
+                          <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '100px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none' }}>
+                            {cfg && (
+                              <span className="badge" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                            )}
+                          </div>
                         </div>
-                      )}
-
-                      {/* Status badge */}
-                      {cfg && (
-                        <span className="badge" style={{ color: cfg.color, background: cfg.bg, flexShrink: 0 }}>{cfg.label}</span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Right: team notes */}
-            <div>
-              <div style={{ background: '#fff', borderRadius: '14px', padding: '20px 24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '16px' }}>Notas da Equipe</div>
-                <div style={{ marginBottom: '20px' }}>
-                  <textarea
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    placeholder="Adicionar nota..."
-                    rows={3}
-                    style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', fontSize: '13px', resize: 'none', outline: 'none', fontFamily: 'var(--font-body)', boxSizing: 'border-box', color: 'var(--color-text-primary)', transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                    onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand-orange)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(185,91,55,0.1)' }}
-                    onBlur={e => { e.currentTarget.style.borderColor = 'var(--color-border)';  e.currentTarget.style.boxShadow = 'none' }}
-                  />
-                  <button onClick={addNote} className="btn-secondary" style={{ marginTop: '8px', width: '100%', padding: '9px' }}>
-                    Salvar nota
-                  </button>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {notes.map((n, i) => (
-                    <div key={i} style={{ borderLeft: '3px solid var(--brand-orange)', padding: '10px 12px', background: 'var(--color-surface-3)', borderRadius: '0 6px 6px 0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-primary)' }}>{n.author}</span>
-                        <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{n.date}</span>
-                      </div>
-                      <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6, margin: 0 }}>{n.text}</p>
-                    </div>
-                  ))}
-                </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Edit Solicitação modal */}
+          {editSolId && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} onClick={() => setEditSolId(null)} />
+              <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: '14px', padding: '28px', width: '380px', zIndex: 301, boxShadow: '0 8px 48px rgba(0,0,0,0.18)' }}>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '16px', color: '#010205', marginBottom: '20px' }}>Editar Solicitação</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Valor solicitado (R$)</div>
+                    <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={editSolForm.amount} onChange={e => setEditSolForm(f => ({ ...f, amount: e.target.value }))} placeholder="500.000" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Comissão (%)</div>
+                    <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} type="number" step="0.1" min="0" max="20" value={editSolForm.commission} onChange={e => setEditSolForm(f => ({ ...f, commission: e.target.value }))} placeholder="2.5" />
+                  </div>
+                  {editSolError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>{editSolError}</div>}
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '24px' }}>
+                  <button onClick={() => setEditSolId(null)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>Cancelar</button>
+                  <button onClick={handleEditSolSave} disabled={editSolSaving} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: editSolSaving ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: editSolSaving ? 'not-allowed' : 'pointer' }}>
+                    {editSolSaving ? 'Salvando…' : 'Salvar'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Delete Solicitação confirm */}
+          {deleteSolId && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} onClick={() => setDeleteSolId(null)} />
+              <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: '14px', padding: '28px', width: '360px', zIndex: 301, boxShadow: '0 8px 48px rgba(0,0,0,0.18)', textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🗑️</div>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '16px', color: '#010205', marginBottom: '8px' }}>Excluir solicitação?</div>
+                <p style={{ fontSize: '13px', color: '#878C91', marginBottom: '24px', lineHeight: 1.6 }}>Esta ação não pode ser desfeita. Todos os documentos vinculados serão removidos.</p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                  <button onClick={() => setDeleteSolId(null)} style={{ padding: '9px 20px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>Cancelar</button>
+                  <button onClick={handleDeleteSol} disabled={deletingSol} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: deletingSol ? '#f87171' : '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: deletingSol ? 'not-allowed' : 'pointer' }}>
+                    {deletingSol ? 'Excluindo…' : 'Excluir'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
