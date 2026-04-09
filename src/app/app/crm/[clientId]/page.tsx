@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { resolveChecklist, fetchPrograms, BANK_SLUGS, CATEGORY_LABELS, type ChecklistItem, type CreditProgram } from '@/lib/credit-programs'
 
 type ClientData = {
   id: string; name: string; initials: string; whatsapp: string; email: string
@@ -11,8 +12,9 @@ type ClientData = {
   assignedTo: string; cpf: string
 }
 type AppData = {
-  id: string; program: string; bank: string; status: string; created: string
+  id: string; program: string; programCode: string; bank: string; status: string; created: string
   amount: number; commission: number; docsComplete: number; docsTotal: number
+  docChecklist: ChecklistItem[] | null
 }
 
 const CLIENT_EMPTY: ClientData = {
@@ -30,26 +32,8 @@ const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
   'Aprovado':           { color: '#16a34a', bg: '#f0fdf4',  cls: 'badge badge-approved' },
 }
 
-const ORG_ID     = 'a0000000-0000-0000-0000-000000000001'
-const LOAN_TYPES = ['Pronaf Custeio', 'Pronaf Investimento', 'Pronamp', 'BNDES Agro', 'FNE Rural']
-const BANKS      = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
-
-/* ─── Document checklist ─────────────────────────────────────────────────── */
-const DOC_TYPES = [
-  { key: 'car',          label: 'Recibo do CAR',                        hasExpiry: true },
-  { key: 'car_dem',      label: 'Demonstrativo CAR',                    hasExpiry: false },
-  { key: 'itr',          label: 'ITR (Imposto Territorial Rural)',       hasExpiry: true },
-  { key: 'ccir',         label: 'CCIR 2024 (quitado)',                  hasExpiry: true },
-  { key: 'matricula',    label: 'Matrícula atualizada do imóvel',        hasExpiry: false },
-  { key: 'arrendamento', label: 'Contrato de arrendamento/comodato',     hasExpiry: true },
-  { key: 'sanitaria',    label: 'Ficha sanitária animal',               hasExpiry: true },
-  { key: 'sintegra',     label: 'Sintegra',                             hasExpiry: true },
-  { key: 'licenca',      label: 'Licenciamento Ambiental',              hasExpiry: true },
-  { key: 'outorga',      label: "Outorga d'água",                       hasExpiry: true },
-  { key: 'vegetacao',    label: 'Laudo de Vegetação Nativa',            hasExpiry: true },
-  { key: 'projeto',      label: 'Projeto técnico',                      hasExpiry: false },
-  { key: 'producao',     label: 'Laudo de produção',                    hasExpiry: false },
-]
+const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
+const BANKS  = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
 
 const MOCK_UPLOADED: Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review'; expiry?: string }> = {
   car:          { name: 'CAR_Fazenda_São_João.pdf',  status: 'completed',    expiry: '2026-12-31' },
@@ -116,7 +100,7 @@ export default function ClientProfilePage() {
       setDataLoading(true)
       const [clientRes, appsRes] = await Promise.all([
         supabase.from('clients').select('*').eq('id', clientId).single(),
-        supabase.from('applications').select('*, documents(id)').eq('client_id', clientId).order('created_at'),
+        supabase.from('applications').select('*, documents(id), program_code, doc_checklist').eq('client_id', clientId).order('created_at'),
       ])
       if (clientRes.data) {
         const c = clientRes.data
@@ -140,14 +124,16 @@ export default function ClientProfilePage() {
       if (appsRes.data) {
         setApplications(appsRes.data.map((a: any) => ({
           id:          a.id,
-          program:     a.loan_type  ?? '',
-          bank:        a.bank       ?? '',
-          status:      a.status     ?? 'Rascunho',
+          program:     a.loan_type   ?? '',
+          programCode: a.program_code ?? '',
+          bank:        a.bank        ?? '',
+          status:      a.status      ?? 'Rascunho',
           created:     new Date(a.created_at).toLocaleDateString('pt-BR'),
-          amount:      a.amount     ?? 0,
+          amount:      a.amount      ?? 0,
           commission:  a.commission_pct ?? 0,
           docsComplete: (a.documents ?? []).length,
-          docsTotal:   DOC_TYPES.length,
+          docsTotal:   (a.doc_checklist ?? []).length || 1,
+          docChecklist: a.doc_checklist ?? null,
         })))
       }
       setDataLoading(false)
@@ -177,10 +163,12 @@ export default function ClientProfilePage() {
   const [appStatus,    setAppStatus]   = useState<Record<string, string>>(
     Object.fromEntries(APPLICATIONS.map(a => [a.id, a.status]))
   )
-  const [newSolDrawer, setNewSolDrawer] = useState(false)
-  const [newSolForm,   setNewSolForm]   = useState({ loanType: 'Pronaf Custeio', bank: 'Banco do Brasil', amount: '', commission: '' })
-  const [newSolSaving, setNewSolSaving] = useState(false)
-  const [newSolError,  setNewSolError]  = useState('')
+  const [newSolDrawer,  setNewSolDrawer]  = useState(false)
+  const [newSolForm,    setNewSolForm]    = useState({ category: 'custeio', programCode: '', bank: 'Banco do Brasil', amount: '', commission: '' })
+  const [newSolSaving,  setNewSolSaving]  = useState(false)
+  const [newSolError,   setNewSolError]   = useState('')
+  const [programs,      setPrograms]      = useState<CreditProgram[]>([])
+  const [docChecklist,  setDocChecklist]  = useState<ChecklistItem[]>([])
 
   // Read ?tab=docs from URL (after "Salvar e fazer upload")
   useEffect(() => {
@@ -194,14 +182,41 @@ export default function ClientProfilePage() {
     }
   }, [applications])
 
+  // Load credit programs for the Nova Solicitação drawer
+  useEffect(() => {
+    fetchPrograms(supabase, BANK_SLUGS[newSolForm.bank] ?? 'banco_do_brasil').then(progs => {
+      setPrograms(progs)
+      // Pre-select first custeio program
+      const first = progs.find(p => p.category === 'custeio')
+      if (first) setNewSolForm(f => ({ ...f, programCode: first.code }))
+    })
+  }, [newSolForm.bank])
+
+  // Load checklist when active application changes
+  useEffect(() => {
+    if (!activeAppId) return
+    const app = applications.find(a => a.id === activeAppId)
+    if (!app) return
+    if (app.docChecklist && app.docChecklist.length > 0) {
+      setDocChecklist(app.docChecklist)
+    } else if (app.programCode) {
+      // Legacy fallback: fetch live if no snapshot
+      const bankSlug = BANK_SLUGS[app.bank] ?? 'banco_do_brasil'
+      resolveChecklist(supabase, app.programCode, bankSlug).then(setDocChecklist)
+    } else {
+      setDocChecklist([])
+    }
+  }, [activeAppId, applications])
+
   const activeApp    = APPLICATIONS.find(a => a.id === activeAppId) ?? APPLICATIONS[0]
   const appPct       = activeApp ? Math.round((activeApp.docsComplete / activeApp.docsTotal) * 100) : 0
   const projectedFee = activeApp ? activeApp.amount * activeApp.commission / 100 : 0
 
   // Missing docs for active application
-  const missingDocs  = DOC_TYPES.filter(d => !uploaded[d.key])
-  const expiringDocs = DOC_TYPES.filter(d => {
-    const status = expiryStatus(expiryDates[d.key] ?? '')
+  const missingDocs  = docChecklist.filter(d => !uploaded[d.doc_key])
+  const expiringDocs = docChecklist.filter(d => {
+    if (!d.has_expiry) return false
+    const status = expiryStatus(expiryDates[d.doc_key] ?? '')
     return status === 'soon' || status === 'expired'
   })
 
@@ -272,40 +287,58 @@ export default function ClientProfilePage() {
   }
 
   async function handleCreateSol() {
+    if (!newSolForm.programCode) { setNewSolError('Selecione um programa de crédito.'); return }
     setNewSolSaving(true)
     setNewSolError('')
-    const amountNum     = parseFloat(newSolForm.amount.replace(/\./g, '').replace(',', '.')) || null
-    const commissionNum = parseFloat(newSolForm.commission.replace(',', '.')) || null
+
+    const bankSlug   = BANK_SLUGS[newSolForm.bank] ?? 'banco_do_brasil'
+    const amountNum  = parseFloat(newSolForm.amount.replace(/\./g, '').replace(',', '.')) || null
+    const commNum    = parseFloat(newSolForm.commission.replace(',', '.')) || null
+
+    // Resolve checklist snapshot before INSERT
+    const checklist = await resolveChecklist(supabase, newSolForm.programCode, bankSlug)
+
+    // Display name for the selected program
+    const selectedProg = programs.find(p => p.code === newSolForm.programCode)
+    const displayName  = selectedProg?.display_name ?? newSolForm.programCode
+
     const { data, error } = await supabase
       .from('applications')
       .insert({
         organization_id: ORG_ID,
         client_id:       clientId as string,
-        loan_type:       newSolForm.loanType,
+        loan_type:       displayName,
+        program_code:    newSolForm.programCode,
         bank:            newSolForm.bank,
         amount:          amountNum,
-        commission_pct:  commissionNum,
+        commission_pct:  commNum,
         status:          'Rascunho',
+        doc_checklist:   checklist,
       })
-      .select('id, loan_type, bank, status, created_at, amount, commission_pct')
+      .select('id, loan_type, program_code, bank, status, created_at, amount, commission_pct')
       .single()
     if (error) { setNewSolError(error.message); setNewSolSaving(false); return }
+
     const newApp: AppData = {
       id:          data.id,
-      program:     data.loan_type     ?? '',
-      bank:        data.bank          ?? '',
-      status:      data.status        ?? 'Rascunho',
+      program:     data.loan_type   ?? '',
+      programCode: data.program_code ?? '',
+      bank:        data.bank         ?? '',
+      status:      data.status       ?? 'Rascunho',
       created:     new Date(data.created_at).toLocaleDateString('pt-BR'),
-      amount:      data.amount        ?? 0,
+      amount:      data.amount       ?? 0,
       commission:  data.commission_pct ?? 0,
       docsComplete: 0,
-      docsTotal:   DOC_TYPES.length,
+      docsTotal:   checklist.length,
+      docChecklist: checklist,
     }
     setApplications(prev => [...prev, newApp])
     setActiveAppId(data.id)
+    setDocChecklist(checklist)
     setAppStatus(prev => ({ ...prev, [data.id]: 'Rascunho' }))
     setNewSolDrawer(false)
-    setNewSolForm({ loanType: 'Pronaf Custeio', bank: 'Banco do Brasil', amount: '', commission: '' })
+    const firstProg = programs.find(p => p.category === 'custeio')
+    setNewSolForm({ category: 'custeio', programCode: firstProg?.code ?? '', bank: 'Banco do Brasil', amount: '', commission: '' })
     setNewSolSaving(false)
     setTab('docs')
   }
@@ -496,10 +529,10 @@ export default function ClientProfilePage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {expiringDocs.map(doc => {
-                    const st = expiryStatus(expiryDates[doc.key] ?? '')
+                    const st = expiryStatus(expiryDates[doc.doc_key] ?? '')
                     const dotInfo = EXPIRY_DOT[st]
                     return (
-                      <div key={doc.key} onClick={() => setTab('docs')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: st === 'expired' ? '#fef2f2' : '#fffbeb', cursor: 'pointer' }}>
+                      <div key={doc.doc_key} onClick={() => setTab('docs')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: st === 'expired' ? '#fef2f2' : '#fffbeb', cursor: 'pointer' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotInfo.color, flexShrink: 0 }} />
                         <div style={{ flex: 1, fontSize: '12px', fontWeight: 600, color: '#010205' }}>{doc.label}</div>
                         <div style={{ fontSize: '11px', color: dotInfo.color, fontWeight: 600 }}>{dotInfo.label}</div>
@@ -507,7 +540,7 @@ export default function ClientProfilePage() {
                     )
                   })}
                   {missingDocs.map(doc => (
-                    <div key={doc.key} onClick={() => setTab('docs')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: 'var(--color-surface-3)', cursor: 'pointer' }}>
+                    <div key={doc.doc_key} onClick={() => setTab('docs')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: 'var(--color-surface-3)', cursor: 'pointer' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d1d5db', border: '2px solid #9ca3af', flexShrink: 0 }} />
                       <div style={{ flex: 1, fontSize: '12px', color: '#878C91' }}>{doc.label}</div>
                       <div style={{ fontSize: '11px', color: '#878C91' }}>Faltando</div>
@@ -617,17 +650,28 @@ export default function ClientProfilePage() {
 
               {/* Checklist */}
               <div style={{ background: '#fff', borderRadius: '14px', padding: '20px 24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '16px' }}>Checklist de Documentos</div>
-                {DOC_TYPES.map((doc, i) => {
-                  const up   = uploaded[doc.key]
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205' }}>Checklist de Documentos</div>
+                  {docChecklist.length > 0 && (
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                      {docChecklist.filter(d => d.required_level === 'mandatory').length} obrigatórios · {docChecklist.filter(d => d.required_level === 'conditional').length} condicionais
+                    </div>
+                  )}
+                </div>
+                {docChecklist.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>
+                    Carregando checklist…
+                  </div>
+                ) : docChecklist.map((doc, i) => {
+                  const up   = uploaded[doc.doc_key]
                   const cfg  = up ? DOC_STATUS_CFG[up.status] : null
-                  const date = expiryDates[doc.key] ?? ''
-                  const est  = doc.hasExpiry ? expiryStatus(date) : 'none'
+                  const date = expiryDates[doc.doc_key] ?? ''
+                  const est  = doc.has_expiry ? expiryStatus(date) : 'none'
                   const dot  = EXPIRY_DOT[est]
 
                   return (
-                    <div key={doc.key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: i < DOC_TYPES.length - 1 ? '1px solid var(--color-border-subtle)' : 'none' }}>
-                      {/* Status circle */}
+                    <div key={doc.doc_key} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 0', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none' }}>
+                      {/* Required level indicator */}
                       <div style={{
                         width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -641,8 +685,13 @@ export default function ClientProfilePage() {
 
                       {/* Label + filename */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: up ? 600 : 400, color: up ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                          {doc.label}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: up ? 600 : 400, color: up ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                            {doc.label}
+                          </span>
+                          {doc.required_level === 'conditional' && (
+                            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#fffbeb', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>condicional</span>
+                          )}
                         </div>
                         {up && (
                           <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -652,7 +701,7 @@ export default function ClientProfilePage() {
                       </div>
 
                       {/* Expiry badge */}
-                      {doc.hasExpiry && up && date && (
+                      {doc.has_expiry && up && date && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, background: est === 'expired' ? '#fef2f2' : est === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '3px 10px' }}>
                           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: dot.color, flexShrink: 0 }} />
                           <span style={{ fontSize: '11px', fontWeight: 600, color: dot.color, whiteSpace: 'nowrap' }}>
@@ -662,10 +711,7 @@ export default function ClientProfilePage() {
                       )}
 
                       {/* Status badge */}
-                      {cfg && !doc.hasExpiry && (
-                        <span className="badge" style={{ color: cfg.color, background: cfg.bg, flexShrink: 0 }}>{cfg.label}</span>
-                      )}
-                      {cfg && doc.hasExpiry && (
+                      {cfg && (
                         <span className="badge" style={{ color: cfg.color, background: cfg.bg, flexShrink: 0 }}>{cfg.label}</span>
                       )}
                     </div>
@@ -787,26 +833,84 @@ export default function ClientProfilePage() {
           </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Tipo de crédito</div>
-            <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.loanType} onChange={e => setNewSolForm(f => ({ ...f, loanType: e.target.value }))}>
-              {LOAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+
+          {/* Banco */}
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Banco</div>
-            <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.bank} onChange={e => setNewSolForm(f => ({ ...f, bank: e.target.value }))}>
+            <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.bank}
+              onChange={e => setNewSolForm(f => ({ ...f, bank: e.target.value, programCode: '' }))}>
               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
+
+          {/* Categoria (custeio / investimento / fundiario) */}
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Categoria</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {(['custeio', 'investimento', 'fundiario'] as const).map(cat => {
+                const hasProgs = programs.some(p => p.category === cat)
+                if (!hasProgs) return null
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      const first = programs.find(p => p.category === cat)
+                      setNewSolForm(f => ({ ...f, category: cat, programCode: first?.code ?? '' }))
+                    }}
+                    style={{
+                      flex: 1, padding: '8px 0', borderRadius: '8px', border: '1.5px solid',
+                      borderColor: newSolForm.category === cat ? 'var(--brand-orange)' : 'var(--color-border)',
+                      background: newSolForm.category === cat ? 'var(--brand-orange-bg)' : '#fff',
+                      color: newSolForm.category === cat ? 'var(--brand-orange)' : 'var(--color-text-secondary)',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    {CATEGORY_LABELS[cat]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Programa */}
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Programa de Crédito</div>
+            <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+              value={newSolForm.programCode}
+              onChange={e => setNewSolForm(f => ({ ...f, programCode: e.target.value }))}>
+              <option value="">Selecionar…</option>
+              {programs.filter(p => p.category === newSolForm.category).map(p => (
+                <option key={p.code} value={p.code}>{p.display_name}</option>
+              ))}
+            </select>
+            {/* Program info preview */}
+            {newSolForm.programCode && (() => {
+              const prog = programs.find(p => p.code === newSolForm.programCode)
+              if (!prog) return null
+              return (
+                <div style={{ marginTop: '8px', padding: '10px 12px', background: 'var(--color-surface-3)', borderRadius: '8px', fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                  {prog.interest_rate_min != null && (
+                    <div><strong>Taxa:</strong> {prog.interest_rate_min === prog.interest_rate_max ? `${prog.interest_rate_min}%` : `${prog.interest_rate_min}–${prog.interest_rate_max}%`} a.a.</div>
+                  )}
+                  {prog.credit_limit_text && <div><strong>Limite:</strong> {prog.credit_limit_text}</div>}
+                  {prog.term_text && <div><strong>Prazo:</strong> {prog.term_text}</div>}
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Valor solicitado */}
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Valor solicitado (R$)</div>
             <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={newSolForm.amount} onChange={e => setNewSolForm(f => ({ ...f, amount: e.target.value }))} placeholder="500.000" />
           </div>
+
+          {/* Comissão */}
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Comissão (%)</div>
             <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} type="number" step="0.1" min="0" max="20" value={newSolForm.commission} onChange={e => setNewSolForm(f => ({ ...f, commission: e.target.value }))} placeholder="2.5" />
           </div>
+
           {newSolError && (
             <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>
               {newSolError}
