@@ -51,8 +51,10 @@ export default function DocumentViewer({ document: doc, onClose, onFieldUpdate, 
   const [editing, setEditing]           = useState(false)
   const [editFields, setEditFields]     = useState<Record<string, string>>({})
   const [saving, setSaving]             = useState(false)
-  const [deleting, setDeleting]         = useState(false)
+  const [deleting, setDeleting]           = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [retrying, setRetrying]           = useState(false)
+  const [retryError, setRetryError]       = useState<string | null>(null)
 
   const sCfg = STATUS_LABELS[doc.status] ?? STATUS_LABELS.pending
   const isPdf = doc.file_name?.toLowerCase().endsWith('.pdf')
@@ -82,6 +84,25 @@ export default function DocumentViewer({ document: doc, onClose, onFieldUpdate, 
     }
     setEditFields(editable)
     setEditing(true)
+  }
+
+  async function handleRetry() {
+    setRetrying(true)
+    setRetryError(null)
+    try {
+      const res = await fetch(`/api/documents/${doc.id}/extract`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        setRetryError(json.error ?? 'Falha na extração')
+      } else if (onFieldUpdate && json.result) {
+        // Update the parent — Realtime will also pick this up, but update immediately
+        onFieldUpdate(doc.id, json.result.extracted_fields ?? {})
+      }
+    } catch (err: any) {
+      setRetryError(err.message ?? 'Erro desconhecido')
+    } finally {
+      setRetrying(false)
+    }
   }
 
   async function handleDelete() {
@@ -296,9 +317,21 @@ export default function DocumentViewer({ document: doc, onClose, onFieldUpdate, 
                 Analisando documento…
               </div>
             ) : doc.status === 'failed' ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#dc2626', fontSize: '13px' }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>!</div>
-                Falha na extração. {doc.extracted_fields?.error ?? ''}
+              <div style={{ textAlign: 'center', padding: '24px 0', fontSize: '13px' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px', color: '#dc2626' }}>!</div>
+                <div style={{ color: '#dc2626', fontWeight: 600, marginBottom: '6px' }}>Falha na extração</div>
+                {(doc.extracted_fields?.error || retryError) && (
+                  <div style={{ fontSize: '11px', color: '#878C91', marginBottom: '12px', fontFamily: 'monospace', background: '#f8f8f8', borderRadius: '6px', padding: '8px 12px', textAlign: 'left', wordBreak: 'break-all' }}>
+                    {retryError ?? doc.extracted_fields?.error}
+                  </div>
+                )}
+                <button
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  style={{ padding: '8px 18px', borderRadius: '8px', border: 'none', background: retrying ? '#d4956f' : 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: retrying ? 'not-allowed' : 'pointer' }}
+                >
+                  {retrying ? 'Analisando…' : 'Retentar extração'}
+                </button>
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>

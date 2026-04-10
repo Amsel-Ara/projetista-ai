@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createServiceClient } from '@/lib/supabase/service'
+import { BANK_SLUGS } from '@/lib/credit-programs'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -141,26 +142,38 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
       ],
     })
 
-    // 5. Parse Claude's response
+    // 5. Parse Claude's response — robustly extract JSON even if Claude adds surrounding text
     const textBlock = response.content.find(b => b.type === 'text')
     if (!textBlock || textBlock.type !== 'text') {
       throw new Error('No text response from Claude')
     }
 
-    // Strip potential markdown code fences
     let jsonStr = textBlock.text.trim()
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-    }
 
-    const result: ExtractionResult = JSON.parse(jsonStr)
+    // Strip markdown code fences if present
+    jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+
+    // If Claude added preamble text, extract the first JSON object
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error(`Claude response contained no JSON object. Raw: ${jsonStr.slice(0, 200)}`)
+    }
+    jsonStr = jsonMatch[0]
+
+    let result: ExtractionResult
+    try {
+      result = JSON.parse(jsonStr)
+    } catch (parseErr: any) {
+      throw new Error(`JSON parse failed: ${parseErr.message}. Raw: ${jsonStr.slice(0, 200)}`)
+    }
 
     // 6. Calculate effective expiry date
     let effectiveExpiry = result.expiry_date
 
     if (!effectiveExpiry && result.issue_date && result.doc_key !== 'unknown') {
       // Look up validity_days from program_doc_requirements
-      const bankSlug = app?.bank ?? null
+      // app.bank is the display name (e.g. "Banco do Brasil") — convert to slug
+      const bankSlug = app?.bank ? (BANK_SLUGS[app.bank] ?? null) : null
       const { data: program } = await supabase
         .from('credit_programs')
         .select('id')
