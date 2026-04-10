@@ -17,6 +17,7 @@ type Props = {
   document: UploadedDoc
   onClose: () => void
   onFieldUpdate?: (documentId: string, fields: Record<string, any>) => void
+  onDelete?: (documentId: string) => void
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -44,12 +45,14 @@ const DISPLAY_FIELDS = [
   { key: 'confidence',       label: 'Confiança IA' },
 ]
 
-export default function DocumentViewer({ document: doc, onClose, onFieldUpdate }: Props) {
-  const [signedUrl, setSignedUrl]   = useState<string | null>(null)
-  const [loading, setLoading]       = useState(true)
-  const [editing, setEditing]       = useState(false)
-  const [editFields, setEditFields] = useState<Record<string, string>>({})
-  const [saving, setSaving]         = useState(false)
+export default function DocumentViewer({ document: doc, onClose, onFieldUpdate, onDelete }: Props) {
+  const [signedUrl, setSignedUrl]       = useState<string | null>(null)
+  const [loading, setLoading]           = useState(true)
+  const [editing, setEditing]           = useState(false)
+  const [editFields, setEditFields]     = useState<Record<string, string>>({})
+  const [saving, setSaving]             = useState(false)
+  const [deleting, setDeleting]         = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const sCfg = STATUS_LABELS[doc.status] ?? STATUS_LABELS.pending
   const isPdf = doc.file_name?.toLowerCase().endsWith('.pdf')
@@ -79,6 +82,20 @@ export default function DocumentViewer({ document: doc, onClose, onFieldUpdate }
     }
     setEditFields(editable)
     setEditing(true)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await fetch(`/api/documents/${doc.id}`, { method: 'DELETE' })
+      if (onDelete) onDelete(doc.id)
+      onClose()
+    } catch (err) {
+      console.error('[DocumentViewer] Delete error:', err)
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
   }
 
   async function handleSave() {
@@ -138,17 +155,44 @@ export default function DocumentViewer({ document: doc, onClose, onFieldUpdate }
               {sCfg.label}
             </span>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer',
-              width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px',
-              color: 'var(--color-text-secondary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                style={{ border: '1.5px solid #fecaca', borderRadius: '8px', background: '#fff', cursor: 'pointer', padding: '5px 12px', fontSize: '12px', fontWeight: 600, color: '#dc2626' }}
+              >
+                Excluir
+              </button>
+            ) : (
+              <>
+                <span style={{ fontSize: '12px', color: '#dc2626', fontWeight: 600 }}>Confirmar?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  style={{ border: 'none', borderRadius: '8px', background: '#dc2626', cursor: deleting ? 'not-allowed' : 'pointer', padding: '5px 12px', fontSize: '12px', fontWeight: 600, color: '#fff' }}
+                >
+                  {deleting ? '…' : 'Sim'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  style={{ border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', cursor: 'pointer', padding: '5px 12px', fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)' }}
+                >
+                  Não
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer',
+                width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px',
+                color: 'var(--color-text-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Document preview */}

@@ -983,6 +983,15 @@ export default function ClientProfilePage() {
                               <option key={dc.doc_key} value={dc.doc_key}>{dc.label}</option>
                             ))}
                           </select>
+                          <button
+                            onClick={async () => {
+                              await fetch(`/api/documents/${ud.id}`, { method: 'DELETE' })
+                              setUploadedDocs(prev => prev.filter(d => d.id !== ud.id))
+                            }}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1.5px solid #fecaca', borderRadius: '6px', background: '#fff', color: '#dc2626', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
+                          >
+                            Excluir
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1319,6 +1328,9 @@ export default function ClientProfilePage() {
               d.id === docId ? { ...d, extracted_fields: fields, expiry_date: fields.effective_expiry ?? d.expiry_date } : d
             ))
             setViewerDoc(prev => prev && prev.id === docId ? { ...prev, extracted_fields: fields, expiry_date: fields.effective_expiry ?? prev.expiry_date } : prev)
+          }}
+          onDelete={(docId) => {
+            setUploadedDocs(prev => prev.filter(d => d.id !== docId))
           }}
         />
       )}
