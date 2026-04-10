@@ -862,6 +862,33 @@ export default function ClientProfilePage() {
                 />
               </div>
 
+              {/* ── Em processamento ── */}
+              {uploadedDocs.filter(d => d.status === 'pending' || d.status === 'processing').length > 0 && (
+                <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '14px', padding: '16px 20px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '14px' }}>⟳</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>
+                      Em processamento ({uploadedDocs.filter(d => d.status === 'pending' || d.status === 'processing').length})
+                    </span>
+                    <span style={{ fontSize: '12px', color: '#3b82f6', marginLeft: '4px' }}>— a IA está identificando os documentos, aguarde…</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {uploadedDocs.filter(d => d.status === 'pending' || d.status === 'processing').map(ud => {
+                      const cfg = DOC_STATUS_CFG[ud.status]
+                      return (
+                        <div key={ud.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: '#fff', borderRadius: '8px', border: '1px solid #dbeafe' }}>
+                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: cfg.color, flexShrink: 0 }}>
+                            {cfg.icon}
+                          </div>
+                          <div style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>{ud.file_name}</div>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Checklist */}
               <div style={{ background: '#fff', borderRadius: '14px', padding: '20px 24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -885,7 +912,9 @@ export default function ClientProfilePage() {
                       const latestDoc  = docsForKey.length > 0 ? docsForKey[docsForKey.length - 1] : null
                       const cfg        = latestDoc ? DOC_STATUS_CFG[latestDoc.status] ?? null : null
                       const date       = latestDoc?.expiry_date ?? ''
-                      const est        = doc.has_expiry ? expiryStatus(date) : 'none'
+                      // Always compute expiry status — show pill if Claude extracted a date,
+                      // even if the checklist item doesn't declare has_expiry
+                      const est        = expiryStatus(date)
                       const color      = EXPIRY_COLOR[est]
 
                       return (
@@ -929,7 +958,7 @@ export default function ClientProfilePage() {
 
                           {/* Expiry — fixed width column, aligned */}
                           <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '220px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '12px' }}>
-                            {doc.has_expiry && date ? (
+                            {date ? (
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: est === 'expired' ? '#fef2f2' : est === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '3px 10px' }}>
                                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }} />
                                 <span style={{ fontSize: '11px', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
@@ -952,13 +981,13 @@ export default function ClientProfilePage() {
                     })}
                   </div>
 
-                  {/* Unidentified documents — uploaded but not matched to any checklist item */}
-                  {uploadedDocs.filter(d => d.doc_type === 'unknown' && d.status !== 'pending').length > 0 && (
+                  {/* Unidentified documents — finished processing but doc_type still unknown or failed */}
+                  {uploadedDocs.filter(d => (d.status === 'completed' && d.doc_type === 'unknown') || d.status === 'failed').length > 0 && (
                     <div style={{ marginTop: '20px', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '16px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: '#d97706', marginBottom: '10px' }}>
-                        Documentos não identificados ({uploadedDocs.filter(d => d.doc_type === 'unknown' && d.status !== 'pending').length})
+                        Documentos não identificados ({uploadedDocs.filter(d => (d.status === 'completed' && d.doc_type === 'unknown') || d.status === 'failed').length}) — atribua o tipo manualmente
                       </div>
-                      {uploadedDocs.filter(d => d.doc_type === 'unknown' && d.status !== 'pending').map(ud => (
+                      {uploadedDocs.filter(d => (d.status === 'completed' && d.doc_type === 'unknown') || d.status === 'failed').map(ud => (
                         <div key={ud.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
                           <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#d97706' }}>?</div>
                           <div style={{ flex: 1 }}>
