@@ -87,6 +87,14 @@ Identifique qual tipo de documento é este, comparando com a lista abaixo:
 
 ${docListText}
 
+INSTRUÇÕES IMPORTANTES para datas:
+- issue_date: data de emissão/expedição do documento (formato AAAA-MM-DD)
+- expiry_date: data de validade/vencimento EXPLÍCITA no documento (formato AAAA-MM-DD), ou null se não houver
+- Para RG / Carteira de Identidade Nacional (CIN): procure "VÁLIDO ATÉ", "VALIDADE" ou "DATA DE VALIDADE" — a nova CIN tem essa data impressa no verso ou frente
+- Para documentos anuais (CCIR, ITR, CAF): procure ano de validade ou exercício
+- Para matrículas e certidões: procure "expedida em" ou data de emissão — NÃO invente validade
+- Se o documento não tiver data de validade impressa, retorne null para expiry_date
+
 Retorne APENAS um JSON válido (sem markdown, sem backticks) com esta estrutura:
 {
   "doc_key": "chave do tipo de documento da lista acima, ou 'unknown' se não conseguir identificar",
