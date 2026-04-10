@@ -636,8 +636,10 @@ export default function ClientProfilePage() {
       {tab === 'docs' && APPLICATIONS.length > 0 && (
         <div>
           {/* Application selector + header */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '20px 24px', marginBottom: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '20px 24px', marginBottom: '16px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+            {/* Row 1: Program selector · action buttons · date */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {/* Application selector */}
               <select
                 value={activeAppId}
@@ -649,29 +651,6 @@ export default function ClientProfilePage() {
                     {app.program} — {app.bank}
                   </option>
                 ))}
-              </select>
-              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Criado em {activeApp?.created}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {/* Progress */}
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '4px' }}>{appPct}% completo</div>
-                <div style={{ width: '120px', height: '5px', background: 'var(--color-surface-2)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${appPct}%`, height: '100%', background: appPct === 100 ? '#16a34a' : 'var(--brand-orange)', borderRadius: '3px', transition: 'width 0.3s' }} />
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '3px' }}>{activeApp?.docsComplete ?? 0} de {activeApp?.docsTotal ?? 0} docs</div>
-              </div>
-
-              {/* Status selector */}
-              <select
-                value={appStatus[activeAppId]}
-                onChange={e => setAppStatus(prev => ({ ...prev, [activeAppId]: e.target.value }))}
-                style={{ padding: '8px 12px', border: `1.5px solid ${STATUS_CFG[appStatus[activeAppId]]?.color ?? '#878C91'}`, borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: STATUS_CFG[appStatus[activeAppId]]?.color ?? '#878C91', background: STATUS_CFG[appStatus[activeAppId]]?.bg ?? '#F3F3F3', cursor: 'pointer' }}
-              >
-                {Object.keys(STATUS_CFG).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
 
               {/* Edit solicitação */}
@@ -691,7 +670,48 @@ export default function ClientProfilePage() {
               </button>
 
               <button className="btn-secondary">Gerar Excel</button>
+
+              {/* Spacer */}
+              <div style={{ flex: 1 }} />
+
+              <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                Criado em {activeApp?.created}
+              </div>
             </div>
+
+            {/* Row 2: Loan amount · progress bar · status dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+              {/* Loan amount */}
+              {activeApp && (
+                <div style={{ minWidth: '160px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Valor solicitado</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--color-text-primary)', fontFamily: 'Manrope, sans-serif' }}>
+                    R$ {activeApp.amount.toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              )}
+
+              {/* Progress bar — flex-grow so it fills remaining space */}
+              <div style={{ flex: 1, minWidth: '180px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text-primary)' }}>{appPct}% completo</span>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>{activeApp?.docsComplete ?? 0} de {activeApp?.docsTotal ?? 0} docs</span>
+                </div>
+                <div style={{ height: '7px', background: 'var(--color-surface-2)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${appPct}%`, height: '100%', background: appPct === 100 ? '#16a34a' : 'var(--brand-orange)', borderRadius: '4px', transition: 'width 0.3s' }} />
+                </div>
+              </div>
+
+              {/* Status selector */}
+              <select
+                value={appStatus[activeAppId]}
+                onChange={e => setAppStatus(prev => ({ ...prev, [activeAppId]: e.target.value }))}
+                style={{ padding: '8px 12px', border: `1.5px solid ${STATUS_CFG[appStatus[activeAppId]]?.color ?? '#878C91'}`, borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: STATUS_CFG[appStatus[activeAppId]]?.color ?? '#878C91', background: STATUS_CFG[appStatus[activeAppId]]?.bg ?? '#F3F3F3', cursor: 'pointer', flexShrink: 0 }}
+              >
+                {Object.keys(STATUS_CFG).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
           </div>
 
           {/* Full-width: upload + checklist */}
