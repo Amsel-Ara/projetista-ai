@@ -953,9 +953,12 @@ export default function ClientProfilePage() {
                                 const udDate = ud.expiry_date ?? ''
                                 const udEst  = expiryStatus(udDate)
                                 const udClr  = EXPIRY_COLOR[udEst]
-                                // Display name: Claude summary > extracted name > filename
-                                const name   = ud.extracted_fields?.summary
-                                  ?? (ud.extracted_fields?.nome ? ud.extracted_fields.nome : ud.file_name)
+                                // Display name: extract acronym from summary "(RG)", "(RNM)" etc,
+                                // combine with extracted person name → "RG · Marianna Alés Lopez"
+                                const acronym  = ud.extracted_fields?.summary?.match(/\(([A-ZÁÉÍÓÚÃÕÂÊÔÜÇ]{2,8})\)/)?.[1]
+                                const shortKey = acronym ?? doc.label.split(' ')[0]
+                                const nome     = ud.extracted_fields?.nome
+                                const name     = nome ? `${shortKey} · ${nome}` : (shortKey || ud.file_name)
                                 return (
                                   <div
                                     key={ud.id}
