@@ -905,30 +905,25 @@ export default function ClientProfilePage() {
                   </div>
                 ) : (
                   <>
-                  {/* Table layout: status | label+file | expiry | upload-status — all columns aligned */}
-                  <div style={{ display: 'table', width: '100%', borderCollapse: 'collapse' }}>
+                  {/* Checklist rows — each item shows sub-rows for every uploaded document */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {docChecklist.map((doc, i) => {
-                      const docsForKey = docsByKey[doc.doc_key] ?? []
-                      const latestDoc  = docsForKey.length > 0 ? docsForKey[docsForKey.length - 1] : null
-                      const cfg        = latestDoc ? DOC_STATUS_CFG[latestDoc.status] ?? null : null
-                      const date       = latestDoc?.expiry_date ?? ''
-                      // Always compute expiry status — show pill if Claude extracted a date,
-                      // even if the checklist item doesn't declare has_expiry
-                      const est        = expiryStatus(date)
-                      const color      = EXPIRY_COLOR[est]
+                      const docsForKey    = docsByKey[doc.doc_key] ?? []
+                      const hasCompleted  = docsForKey.some(d => d.status === 'completed')
+                      const hasProcessing = docsForKey.some(d => d.status === 'processing')
+                      const hasPending    = docsForKey.some(d => d.status === 'pending')
+                      const allFailed     = docsForKey.length > 0 && docsForKey.every(d => d.status === 'failed')
+                      const bestKey       = hasCompleted ? 'completed' : hasProcessing ? 'processing' : hasPending ? 'pending' : allFailed ? 'failed' : null
+                      const cfg           = bestKey ? DOC_STATUS_CFG[bestKey] : null
+                      const hasAnyDocs    = docsForKey.length > 0
 
                       return (
-                        <div
-                          key={doc.doc_key}
-                          onClick={() => latestDoc && setViewerDoc(latestDoc)}
-                          style={{ display: 'table-row', cursor: latestDoc ? 'pointer' : 'default' }}
-                          onMouseEnter={e => { if (latestDoc) (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-3)' }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                        >
-                          {/* Status circle */}
-                          <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '36px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '12px' }}>
+                        <div key={doc.doc_key} style={{ borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px' }}>
+
+                          {/* Main row: status circle + label + status badge */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{
-                              width: '22px', height: '22px', borderRadius: '50%',
+                              width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: '11px', fontWeight: 700,
                               background: cfg ? cfg.bg : 'var(--color-surface-2)',
@@ -937,45 +932,56 @@ export default function ClientProfilePage() {
                             }}>
                               {cfg ? cfg.icon : ''}
                             </div>
-                          </div>
-
-                          {/* Label + filename — flex-grows */}
-                          <div style={{ display: 'table-cell', verticalAlign: 'middle', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: latestDoc ? 600 : 400, color: latestDoc ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: hasAnyDocs ? 600 : 400, color: hasAnyDocs ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
                                 {doc.label}
                               </span>
                               {doc.required_level === 'conditional' && (
                                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#fffbeb', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>condicional</span>
                               )}
                             </div>
-                            {latestDoc && (
-                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-                                {latestDoc.file_name}{docsForKey.length > 1 ? ` (+${docsForKey.length - 1})` : ''}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Expiry — fixed width column, aligned */}
-                          <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '220px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '12px' }}>
-                            {date ? (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: est === 'expired' ? '#fef2f2' : est === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '3px 10px' }}>
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }} />
-                                <span style={{ fontSize: '11px', fontWeight: 600, color, whiteSpace: 'nowrap' }}>
-                                  {expiryLabel(date)} · {new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                                </span>
-                              </div>
-                            ) : doc.has_expiry ? (
-                              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>—</span>
-                            ) : null}
-                          </div>
-
-                          {/* Upload status badge */}
-                          <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '100px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none' }}>
                             {cfg && (
-                              <span className="badge" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
+                              <span className="badge" style={{ color: cfg.color, background: cfg.bg, flexShrink: 0 }}>{cfg.label}</span>
                             )}
                           </div>
+
+                          {/* Sub-rows: one per uploaded document, each clickable */}
+                          {docsForKey.length > 0 && (
+                            <div style={{ marginTop: '6px', paddingLeft: '34px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {docsForKey.map((ud, idx) => {
+                                const udCfg  = DOC_STATUS_CFG[ud.status]
+                                const udDate = ud.expiry_date ?? ''
+                                const udEst  = expiryStatus(udDate)
+                                const udClr  = EXPIRY_COLOR[udEst]
+                                // Display name: Claude summary > extracted name > filename
+                                const name   = ud.extracted_fields?.summary
+                                  ?? (ud.extracted_fields?.nome ? ud.extracted_fields.nome : ud.file_name)
+                                return (
+                                  <div
+                                    key={ud.id}
+                                    onClick={() => setViewerDoc(ud)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderRadius: '7px', cursor: 'pointer' }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-3)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                  >
+                                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: 600, width: '18px', flexShrink: 0 }}>{idx + 1}.</span>
+                                    <span style={{ flex: 1, fontSize: '12px', color: 'var(--color-text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                                    {udDate ? (
+                                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: udEst === 'expired' ? '#fef2f2' : udEst === 'soon' ? '#fffbeb' : '#f0fdf4', borderRadius: '20px', padding: '2px 8px', flexShrink: 0 }}>
+                                        <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: udClr }} />
+                                        <span style={{ fontSize: '10px', fontWeight: 600, color: udClr, whiteSpace: 'nowrap' }}>
+                                          {expiryLabel(udDate)} · {new Date(udDate + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                        </span>
+                                      </div>
+                                    ) : doc.has_expiry ? (
+                                      <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', flexShrink: 0 }}>—</span>
+                                    ) : null}
+                                    <span style={{ fontSize: '10px', fontWeight: 600, color: udCfg.color, background: udCfg.bg, borderRadius: '4px', padding: '2px 6px', flexShrink: 0 }}>{udCfg.label}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
