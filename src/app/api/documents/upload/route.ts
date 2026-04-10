@@ -3,7 +3,19 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { performExtraction, isExtractable } from '@/lib/ai/extract-document'
 
+// Allow up to 60 seconds for upload + background extraction on Vercel
+export const maxDuration = 60
+
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20 MB
+
+/** Sanitize filename for safe storage paths — remove spaces and special chars */
+function sanitizeFilename(name: string): string {
+  return name
+    .normalize('NFD')                    // decompose accented chars
+    .replace(/[\u0300-\u036f]/g, '')     // strip accent marks
+    .replace(/[^a-zA-Z0-9.\-_]/g, '_')  // replace anything else with _
+    .replace(/_+/g, '_')                 // collapse multiple underscores
+}
 
 export async function POST(request: Request) {
   try {
@@ -49,7 +61,8 @@ export async function POST(request: Request) {
 
     // 4. Upload to Supabase Storage
     const fileId = crypto.randomUUID()
-    const storagePath = `${orgId}/${applicationId}/${fileId}_${file.name}`
+    const safeName = sanitizeFilename(file.name)
+    const storagePath = `${orgId}/${applicationId}/${fileId}_${safeName}`
     const mimeType = file.type || 'application/octet-stream'
 
     const serviceClient = createServiceClient()
