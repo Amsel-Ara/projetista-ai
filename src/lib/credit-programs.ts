@@ -9,6 +9,7 @@ export type ChecklistItem = {
   source:         'MCR' | 'BB' | 'MCR+BB'
   required_level: 'mandatory' | 'conditional'
   notes:          string | null
+  validity_days:  number | null   // days from issue date; null = doc has explicit expiry or doesn't expire
 }
 
 export type CreditProgram = {
@@ -80,6 +81,7 @@ export async function resolveChecklist(
       required_level,
       notes,
       bank,
+      validity_days,
       doc_types (
         doc_key,
         label,
@@ -104,6 +106,7 @@ export async function resolveChecklist(
     source:         row.source,
     required_level: row.required_level,
     notes:          row.notes,
+    validity_days:  row.validity_days ?? null,
   }))
 }
 

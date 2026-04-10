@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { resolveChecklist, fetchPrograms, BANK_SLUGS, CATEGORY_LABELS, type ChecklistItem, type CreditProgram } from '@/lib/credit-programs'
+import DocumentViewer from './DocumentViewer'
 
 type ClientData = {
   id: string; name: string; initials: string; whatsapp: string; email: string
@@ -35,25 +36,23 @@ const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 const BANKS  = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
 
-const MOCK_UPLOADED: Record<string, { name: string; status: 'completed' | 'processing' | 'needs_review'; expiry?: string }> = {
-  car:          { name: 'CAR_Fazenda_São_João.pdf',  status: 'completed',    expiry: '2026-12-31' },
-  itr:          { name: 'ITR_2024.pdf',              status: 'completed',    expiry: '2025-04-15' },
-  ccir:         { name: 'CCIR_2024_quitado.pdf',     status: 'completed',    expiry: '2026-05-01' },
-  matricula:    { name: 'Matricula_atualizada.pdf',  status: 'needs_review', expiry: '' },
-  sintegra:     { name: 'Sintegra_export.pdf',       status: 'processing',   expiry: '' },
-  arrendamento: { name: 'Contrato_arrendamento.pdf', status: 'completed',    expiry: '2027-06-30' },
-  sanitaria:    { name: 'Ficha_sanitaria.pdf',       status: 'completed',    expiry: '2026-09-01' },
-  licenca:      { name: 'Licenca_ambiental.pdf',     status: 'completed',    expiry: '2028-01-01' },
-  outorga:      { name: 'Outorga_agua.pdf',          status: 'completed',    expiry: '2027-03-15' },
+type UploadedDoc = {
+  id: string
+  doc_type: string
+  file_name: string
+  file_path: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  expiry_date: string | null
+  extracted_fields: Record<string, any> | null
+  created_at: string
 }
 
-const DOC_STATUS_CFG = {
-  completed:    { label: 'Processado',    color: 'var(--status-approved-color)', bg: 'var(--status-approved-bg)',  icon: '✓' },
-  processing:   { label: 'Processando…', color: 'var(--status-sent-color)',     bg: 'var(--status-sent-bg)',      icon: '⟳' },
-  needs_review: { label: 'Revisar',       color: 'var(--status-pending-color)',  bg: 'var(--status-pending-bg)',   icon: '!' },
+const DOC_STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  pending:    { label: 'Enviado',       color: '#878C91',                       bg: '#F3F3F3',                        icon: '↑' },
+  processing: { label: 'Processando…', color: 'var(--status-sent-color)',     bg: 'var(--status-sent-bg)',          icon: '⟳' },
+  completed:  { label: 'Processado',    color: 'var(--status-approved-color)', bg: 'var(--status-approved-bg)',      icon: '✓' },
+  failed:     { label: 'Erro',          color: '#dc2626',                      bg: '#fef2f2',                        icon: '!' },
 }
-
-// Notes and extracted fields are loaded from Supabase (Phases 3+)
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 function expiryDaysLeft(dateStr: string): number {
@@ -167,12 +166,9 @@ export default function ClientProfilePage() {
   const [tab,          setTab]         = useState<'overview' | 'docs' | 'data'>('overview')
   const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
-  const [uploaded,     setUploaded]    = useState(MOCK_UPLOADED)
-  const [expiryDates,  setExpiryDates] = useState<Record<string, string>>(
-    Object.fromEntries(Object.entries(MOCK_UPLOADED).map(([k, v]) => [k, v.expiry ?? '']))
-  )
-  const [note,         setNote]        = useState('')
-  const [notes,        setNotes]       = useState<{ author: string; date: string; text: string }[]>([])
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
+  const [uploading,    setUploading]   = useState(false)
+  const [viewerDoc,    setViewerDoc]   = useState<UploadedDoc | null>(null)
   const [appStatus,    setAppStatus]   = useState<Record<string, string>>(
     Object.fromEntries(APPLICATIONS.map(a => [a.id, a.status]))
   )
@@ -227,28 +223,140 @@ export default function ClientProfilePage() {
     }
   }, [activeAppId, applications])
 
+  // Load uploaded documents when active application changes
+  useEffect(() => {
+    if (!activeAppId) { setUploadedDocs([]); return }
+    async function loadDocs() {
+      const { data } = await supabase
+        .from('documents')
+        .select('id, doc_type, file_name, file_path, status, expiry_date, created_at, extracted_fields(fields)')
+        .eq('application_id', activeAppId)
+        .order('created_at')
+      if (data) {
+        setUploadedDocs(data.map((d: any) => ({
+          id: d.id,
+          doc_type: d.doc_type,
+          file_name: d.file_name,
+          file_path: d.file_path,
+          status: d.status,
+          expiry_date: d.expiry_date,
+          extracted_fields: d.extracted_fields?.[0]?.fields ?? d.extracted_fields?.fields ?? null,
+          created_at: d.created_at,
+        })))
+      }
+    }
+    loadDocs()
+  }, [activeAppId])
+
+  // Supabase Realtime: listen for document status changes
+  useEffect(() => {
+    if (!activeAppId) return
+    const channel = supabase
+      .channel(`docs-${activeAppId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'documents',
+        filter: `application_id=eq.${activeAppId}`,
+      }, async (payload) => {
+        const updated = payload.new as any
+        // Update the doc in state
+        setUploadedDocs(prev => prev.map(d =>
+          d.id === updated.id
+            ? { ...d, doc_type: updated.doc_type, status: updated.status, expiry_date: updated.expiry_date }
+            : d
+        ))
+        // Fetch extracted_fields for this document
+        const { data: ef } = await supabase
+          .from('extracted_fields')
+          .select('fields')
+          .eq('document_id', updated.id)
+          .maybeSingle()
+        if (ef) {
+          setUploadedDocs(prev => prev.map(d =>
+            d.id === updated.id ? { ...d, extracted_fields: ef.fields } : d
+          ))
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [activeAppId])
+
+  // Derived: lookup of uploaded docs by doc_type
+  const docsByKey: Record<string, UploadedDoc[]> = {}
+  for (const d of uploadedDocs) {
+    if (!docsByKey[d.doc_type]) docsByKey[d.doc_type] = []
+    docsByKey[d.doc_type].push(d)
+  }
+
   const activeApp    = APPLICATIONS.find(a => a.id === activeAppId) ?? APPLICATIONS[0]
-  const appPct       = activeApp ? Math.round((activeApp.docsComplete / activeApp.docsTotal) * 100) : 0
+  // Progress: count unique doc_keys with at least one completed upload
+  const completedDocKeys = new Set(uploadedDocs.filter(d => d.status === 'completed' && d.doc_type !== 'unknown').map(d => d.doc_type))
+  const appPct       = activeApp && docChecklist.length > 0
+    ? Math.round((completedDocKeys.size / docChecklist.length) * 100)
+    : 0
   const projectedFee = activeApp ? activeApp.amount * activeApp.commission / 100 : 0
 
-  // Missing docs for active application
-  const missingDocs  = docChecklist.filter(d => !uploaded[d.doc_key])
+  // Missing docs for active application (no uploaded doc or no completed doc)
+  const missingDocs  = docChecklist.filter(d => {
+    const docs = docsByKey[d.doc_key]
+    return !docs || !docs.some(ud => ud.status === 'completed')
+  })
   const expiringDocs = docChecklist.filter(d => {
     if (!d.has_expiry) return false
-    const status = expiryStatus(expiryDates[d.doc_key] ?? '')
+    const docs = docsByKey[d.doc_key]
+    if (!docs) return false
+    const latestCompleted = docs.filter(ud => ud.status === 'completed' && ud.expiry_date).pop()
+    if (!latestCompleted?.expiry_date) return false
+    const status = expiryStatus(latestCompleted.expiry_date)
     return status === 'soon' || status === 'expired'
   })
+
+  // Upload handler
+  async function handleUpload(files: FileList | File[]) {
+    if (!activeAppId) return
+    setUploading(true)
+    for (const file of Array.from(files)) {
+      // Optimistic: add pending entry
+      const tempId = crypto.randomUUID()
+      setUploadedDocs(prev => [...prev, {
+        id: tempId,
+        doc_type: 'unknown',
+        file_name: file.name,
+        file_path: '',
+        status: 'pending',
+        expiry_date: null,
+        extracted_fields: null,
+        created_at: new Date().toISOString(),
+      }])
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('application_id', activeAppId)
+        const res = await fetch('/api/documents/upload', { method: 'POST', body: formData })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error ?? 'Upload failed')
+        const doc = json.document
+        // Replace temp entry with real data
+        setUploadedDocs(prev => prev.map(d =>
+          d.id === tempId ? { ...d, id: doc.id, file_path: doc.file_path, status: doc.status } : d
+        ))
+      } catch (err: any) {
+        console.error('[upload] Error:', err)
+        // Mark temp entry as failed
+        setUploadedDocs(prev => prev.map(d =>
+          d.id === tempId ? { ...d, status: 'failed' as const } : d
+        ))
+      }
+    }
+    setUploading(false)
+  }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragging(false)
-    // In production: upload to Supabase Storage
-  }
-
-  function addNote() {
-    if (!note.trim()) return
-    setNotes(prev => [{ author: currentUser || 'Usuário', date: new Date().toLocaleString('pt-BR'), text: note }, ...prev])
-    setNote('')
+    if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files)
   }
 
   function openEdit() {
@@ -589,7 +697,9 @@ export default function ClientProfilePage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {expiringDocs.map(doc => {
-                    const dateStr = expiryDates[doc.doc_key] ?? ''
+                    const docs = docsByKey[doc.doc_key] ?? []
+                    const latestCompleted = docs.filter(ud => ud.status === 'completed' && ud.expiry_date).pop()
+                    const dateStr = latestCompleted?.expiry_date ?? ''
                     const st      = expiryStatus(dateStr)
                     const color   = EXPIRY_COLOR[st]
                     return (
@@ -738,9 +848,18 @@ export default function ClientProfilePage() {
                     <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
                   </svg>
                 </div>
-                <p style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '14px', marginBottom: '4px' }}>Arraste documentos aqui ou clique para selecionar</p>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>PDF, JPG, PNG — o sistema identifica o tipo automaticamente</p>
-                <input id="doc-file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} />
+                <p style={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '14px', marginBottom: '4px' }}>
+                  {uploading ? 'Enviando…' : 'Arraste documentos aqui ou clique para selecionar'}
+                </p>
+                <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>PDF, JPG, PNG, Excel, Word — o sistema identifica o tipo automaticamente</p>
+                <input
+                  id="doc-file-input"
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.csv,.docx,.doc,.pptx,.ppt"
+                  style={{ display: 'none' }}
+                  onChange={e => { if (e.target.files && e.target.files.length > 0) { handleUpload(e.target.files); e.target.value = '' } }}
+                />
               </div>
 
               {/* Checklist */}
@@ -758,17 +877,25 @@ export default function ClientProfilePage() {
                     Carregando checklist…
                   </div>
                 ) : (
-                  /* Table layout: status | label+file | expiry | upload-status — all columns aligned */
+                  <>
+                  {/* Table layout: status | label+file | expiry | upload-status — all columns aligned */}
                   <div style={{ display: 'table', width: '100%', borderCollapse: 'collapse' }}>
                     {docChecklist.map((doc, i) => {
-                      const up    = uploaded[doc.doc_key]
-                      const cfg   = up ? DOC_STATUS_CFG[up.status] : null
-                      const date  = expiryDates[doc.doc_key] ?? ''
-                      const est   = doc.has_expiry ? expiryStatus(date) : 'none'
-                      const color = EXPIRY_COLOR[est]
+                      const docsForKey = docsByKey[doc.doc_key] ?? []
+                      const latestDoc  = docsForKey.length > 0 ? docsForKey[docsForKey.length - 1] : null
+                      const cfg        = latestDoc ? DOC_STATUS_CFG[latestDoc.status] ?? null : null
+                      const date       = latestDoc?.expiry_date ?? ''
+                      const est        = doc.has_expiry ? expiryStatus(date) : 'none'
+                      const color      = EXPIRY_COLOR[est]
 
                       return (
-                        <div key={doc.doc_key} style={{ display: 'table-row' }}>
+                        <div
+                          key={doc.doc_key}
+                          onClick={() => latestDoc && setViewerDoc(latestDoc)}
+                          style={{ display: 'table-row', cursor: latestDoc ? 'pointer' : 'default' }}
+                          onMouseEnter={e => { if (latestDoc) (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-3)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                        >
                           {/* Status circle */}
                           <div style={{ display: 'table-cell', verticalAlign: 'middle', width: '36px', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '12px' }}>
                             <div style={{
@@ -786,16 +913,16 @@ export default function ClientProfilePage() {
                           {/* Label + filename — flex-grows */}
                           <div style={{ display: 'table-cell', verticalAlign: 'middle', paddingTop: i === 0 ? 0 : '10px', paddingBottom: '10px', borderBottom: i < docChecklist.length - 1 ? '1px solid var(--color-border-subtle)' : 'none', paddingRight: '16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '13px', fontWeight: up ? 600 : 400, color: up ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: '13px', fontWeight: latestDoc ? 600 : 400, color: latestDoc ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
                                 {doc.label}
                               </span>
                               {doc.required_level === 'conditional' && (
                                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', background: '#fffbeb', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>condicional</span>
                               )}
                             </div>
-                            {up && (
+                            {latestDoc && (
                               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-                                {up.name}
+                                {latestDoc.file_name}{docsForKey.length > 1 ? ` (+${docsForKey.length - 1})` : ''}
                               </div>
                             )}
                           </div>
@@ -824,6 +951,43 @@ export default function ClientProfilePage() {
                       )
                     })}
                   </div>
+
+                  {/* Unidentified documents — uploaded but not matched to any checklist item */}
+                  {uploadedDocs.filter(d => d.doc_type === 'unknown' && d.status !== 'pending').length > 0 && (
+                    <div style={{ marginTop: '20px', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '16px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#d97706', marginBottom: '10px' }}>
+                        Documentos não identificados ({uploadedDocs.filter(d => d.doc_type === 'unknown' && d.status !== 'pending').length})
+                      </div>
+                      {uploadedDocs.filter(d => d.doc_type === 'unknown' && d.status !== 'pending').map(ud => (
+                        <div key={ud.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid var(--color-border-subtle)' }}>
+                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#d97706' }}>?</div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)', cursor: 'pointer' }} onClick={() => setViewerDoc(ud)}>{ud.file_name}</div>
+                          </div>
+                          <select
+                            value=""
+                            onChange={async (e) => {
+                              const newDocType = e.target.value
+                              if (!newDocType) return
+                              await fetch(`/api/documents/${ud.id}/fields`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ doc_type: newDocType }),
+                              })
+                              setUploadedDocs(prev => prev.map(d => d.id === ud.id ? { ...d, doc_type: newDocType } : d))
+                            }}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid var(--color-border)', borderRadius: '6px', color: 'var(--color-text-secondary)' }}
+                          >
+                            <option value="">Atribuir tipo…</option>
+                            {docChecklist.map(dc => (
+                              <option key={dc.doc_key} value={dc.doc_key}>{dc.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             </div>
@@ -1142,6 +1306,22 @@ export default function ClientProfilePage() {
           </button>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* DOCUMENT VIEWER PANEL                                      */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {viewerDoc && (
+        <DocumentViewer
+          document={viewerDoc}
+          onClose={() => setViewerDoc(null)}
+          onFieldUpdate={(docId, fields) => {
+            setUploadedDocs(prev => prev.map(d =>
+              d.id === docId ? { ...d, extracted_fields: fields, expiry_date: fields.effective_expiry ?? d.expiry_date } : d
+            ))
+            setViewerDoc(prev => prev && prev.id === docId ? { ...prev, extracted_fields: fields, expiry_date: fields.effective_expiry ?? prev.expiry_date } : prev)
+          }}
+        />
+      )}
     </div>
   )
 }
