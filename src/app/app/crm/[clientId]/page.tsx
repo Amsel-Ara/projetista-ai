@@ -11,6 +11,19 @@ type ClientData = {
   id: string; name: string; initials: string; whatsapp: string; email: string
   city: string; state: string; farmName: string; farmAddress: string
   assignedTo: string; cpf: string
+  // Pessoa & Contato extended fields
+  cnpj: string; razaoSocial: string; cnae: string; naturezaJuridica: string
+  dateOfBirth: string; cpfStatus: string
+  cep: string; logradouro: string; numero: string; complemento: string
+  bairro: string; ibgeCode: string; comoConheceu: string
+}
+
+type RuralProperty = {
+  id: string
+  nirf: string; nome: string; municipio: string; uf: string; area_declarada_ha: string
+  car_numero: string; car_status: string; car_area_ha: string
+  ccir: string; ccir_situacao: string; ccir_area_ha: string
+  condicao_produtor: string; atividade_principal: string; caf_dap: string
 }
 type AppData = {
   id: string; program: string; programCode: string; bank: string; status: string; created: string
@@ -22,6 +35,17 @@ const CLIENT_EMPTY: ClientData = {
   id: '', name: '…', initials: '?', whatsapp: '', email: '',
   city: '', state: '', farmName: '', farmAddress: '',
   assignedTo: '', cpf: '',
+  cnpj: '', razaoSocial: '', cnae: '', naturezaJuridica: '',
+  dateOfBirth: '', cpfStatus: '',
+  cep: '', logradouro: '', numero: '', complemento: '',
+  bairro: '', ibgeCode: '', comoConheceu: '',
+}
+
+const EMPTY_PROP: Omit<RuralProperty, 'id'> = {
+  nirf: '', nome: '', municipio: '', uf: '', area_declarada_ha: '',
+  car_numero: '', car_status: '', car_area_ha: '',
+  ccir: '', ccir_situacao: '', ccir_area_ha: '',
+  condicao_produtor: '', atividade_principal: '', caf_dap: '',
 }
 
 const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
@@ -123,14 +147,39 @@ export default function ClientProfilePage() {
           : name.slice(0, 2).toUpperCase()
         setClientData({
           id: c.id, name, initials,
-          whatsapp:    c.whatsapp    ?? '',
-          email:       c.email       ?? '',
-          city:        c.city        ?? '',
-          state:       c.state       ?? '',
-          farmName:    c.farm_name   ?? '',
-          farmAddress: c.farm_address ?? '',
-          assignedTo:  '',
-          cpf:         c.cpf         ?? '',
+          whatsapp:         c.whatsapp          ?? '',
+          email:            c.email             ?? '',
+          city:             c.city              ?? '',
+          state:            c.state             ?? '',
+          farmName:         c.farm_name         ?? '',
+          farmAddress:      c.farm_address      ?? '',
+          assignedTo:       '',
+          cpf:              c.cpf               ?? '',
+          cnpj:             c.cnpj              ?? '',
+          razaoSocial:      c.razao_social       ?? '',
+          cnae:             c.cnae              ?? '',
+          naturezaJuridica: c.natureza_juridica  ?? '',
+          dateOfBirth:      c.date_of_birth     ?? '',
+          cpfStatus:        c.cpf_status        ?? '',
+          cep:              c.cep               ?? '',
+          logradouro:       c.logradouro        ?? '',
+          numero:           c.numero            ?? '',
+          complemento:      c.complemento       ?? '',
+          bairro:           c.bairro            ?? '',
+          ibgeCode:         c.ibge_code         ?? '',
+          comoConheceu:     c.como_conheceu     ?? '',
+        })
+        setPessoaForm({
+          name: c.name ?? '', cpf: c.cpf ?? '', cnpj: c.cnpj ?? '',
+          razaoSocial: c.razao_social ?? '', cnae: c.cnae ?? '',
+          naturezaJuridica: c.natureza_juridica ?? '',
+          dateOfBirth: c.date_of_birth ?? '', cpfStatus: c.cpf_status ?? '',
+          cep: c.cep ?? '', logradouro: c.logradouro ?? '',
+          numero: c.numero ?? '', complemento: c.complemento ?? '',
+          bairro: c.bairro ?? '', city: c.city ?? '', state: c.state ?? '',
+          ibgeCode: c.ibge_code ?? '',
+          whatsapp: c.whatsapp ?? '', email: c.email ?? '',
+          comoConheceu: c.como_conheceu ?? '',
         })
       }
       if (appsRes.data) {
@@ -163,7 +212,7 @@ export default function ClientProfilePage() {
   const [editError,    setEditError]   = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting,     setDeleting]    = useState(false)
-  const [tab,          setTab]         = useState<'overview' | 'docs' | 'data'>('overview')
+  const [tab,          setTab]         = useState<'overview' | 'docs' | 'data' | 'pessoa' | 'imovel'>('overview')
   const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
@@ -184,6 +233,29 @@ export default function ClientProfilePage() {
   const [editSolError,  setEditSolError]  = useState('')
   const [deleteSolId,   setDeleteSolId]   = useState<string | null>(null)
   const [deletingSol,   setDeletingSol]   = useState(false)
+
+  // ── Pessoa & Contato ──
+  const [pessoaForm,    setPessoaForm]    = useState({
+    name: '', cpf: '', cnpj: '', razaoSocial: '', cnae: '', naturezaJuridica: '',
+    dateOfBirth: '', cpfStatus: '',
+    cep: '', logradouro: '', numero: '', complemento: '', bairro: '',
+    city: '', state: '', ibgeCode: '',
+    whatsapp: '', email: '', comoConheceu: '',
+  })
+  const [pessoaSaving,  setPessoaSaving]  = useState(false)
+  const [pessoaError,   setPessoaError]   = useState('')
+  const [pessoaSaved,   setPessoaSaved]   = useState(false)
+
+  // ── Imóvel Rural ──
+  const [properties,       setProperties]       = useState<RuralProperty[]>([])
+  const [propsLoading,     setPropsLoading]     = useState(false)
+  const [propFormOpen,     setPropFormOpen]     = useState(false)
+  const [editPropId,       setEditPropId]       = useState<string | null>(null)
+  const [propForm,         setPropForm]         = useState<Omit<RuralProperty, 'id'>>(EMPTY_PROP)
+  const [propSaving,       setPropSaving]       = useState(false)
+  const [propError,        setPropError]        = useState('')
+  const [deletePropId,     setDeletePropId]     = useState<string | null>(null)
+  const [deletingProp,     setDeletingProp]     = useState(false)
 
   // Read ?tab=docs from URL (after "Salvar e fazer upload")
   useEffect(() => {
@@ -281,6 +353,115 @@ export default function ClientProfilePage() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [activeAppId])
+
+  // Load rural properties when clientId changes
+  useEffect(() => {
+    if (!clientId) return
+    setPropsLoading(true)
+    supabase
+      .from('rural_properties')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at')
+      .then(({ data }) => {
+        if (data) setProperties(data.map((p: any) => ({
+          id: p.id,
+          nirf: p.nirf ?? '', nome: p.nome ?? '',
+          municipio: p.municipio ?? '', uf: p.uf ?? '',
+          area_declarada_ha: p.area_declarada_ha?.toString() ?? '',
+          car_numero: p.car_numero ?? '', car_status: p.car_status ?? '',
+          car_area_ha: p.car_area_ha?.toString() ?? '',
+          ccir: p.ccir ?? '', ccir_situacao: p.ccir_situacao ?? '',
+          ccir_area_ha: p.ccir_area_ha?.toString() ?? '',
+          condicao_produtor: p.condicao_produtor ?? '',
+          atividade_principal: p.atividade_principal ?? '',
+          caf_dap: p.caf_dap ?? '',
+        })))
+        setPropsLoading(false)
+      })
+  }, [clientId])
+
+  // Save Pessoa & Contato
+  async function handlePessoaSave() {
+    if (!pessoaForm.name.trim()) { setPessoaError('Nome é obrigatório.'); return }
+    setPessoaSaving(true); setPessoaError(''); setPessoaSaved(false)
+    const { error } = await supabase.from('clients').update({
+      name:               pessoaForm.name,
+      cpf:                pessoaForm.cpf || null,
+      cnpj:               pessoaForm.cnpj || null,
+      razao_social:       pessoaForm.razaoSocial || null,
+      cnae:               pessoaForm.cnae || null,
+      natureza_juridica:  pessoaForm.naturezaJuridica || null,
+      date_of_birth:      pessoaForm.dateOfBirth || null,
+      cpf_status:         pessoaForm.cpfStatus || null,
+      cep:                pessoaForm.cep || null,
+      logradouro:         pessoaForm.logradouro || null,
+      numero:             pessoaForm.numero || null,
+      complemento:        pessoaForm.complemento || null,
+      bairro:             pessoaForm.bairro || null,
+      city:               pessoaForm.city || null,
+      state:              pessoaForm.state || null,
+      ibge_code:          pessoaForm.ibgeCode || null,
+      whatsapp:           pessoaForm.whatsapp || null,
+      email:              pessoaForm.email || null,
+      como_conheceu:      pessoaForm.comoConheceu || null,
+    }).eq('id', clientId as string)
+    if (error) { setPessoaError('Erro ao salvar. Tente novamente.'); setPessoaSaving(false); return }
+    // Refresh the name in the header
+    const parts = pessoaForm.name.trim().split(/\s+/)
+    const initials = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : pessoaForm.name.slice(0, 2).toUpperCase()
+    setClientData(prev => ({ ...prev, name: pessoaForm.name, initials, whatsapp: pessoaForm.whatsapp, email: pessoaForm.email, city: pessoaForm.city, state: pessoaForm.state, cpf: pessoaForm.cpf }))
+    setPessoaSaving(false); setPessoaSaved(true)
+    setTimeout(() => setPessoaSaved(false), 3000)
+  }
+
+  // Save / upsert a rural property
+  async function handlePropSave() {
+    setPropSaving(true); setPropError('')
+    const payload = {
+      organization_id:     ORG_ID,
+      client_id:           clientId as string,
+      nirf:                propForm.nirf || null,
+      nome:                propForm.nome || null,
+      municipio:           propForm.municipio || null,
+      uf:                  propForm.uf || null,
+      area_declarada_ha:   propForm.area_declarada_ha ? parseFloat(propForm.area_declarada_ha) : null,
+      car_numero:          propForm.car_numero || null,
+      car_status:          propForm.car_status || null,
+      car_area_ha:         propForm.car_area_ha ? parseFloat(propForm.car_area_ha) : null,
+      ccir:                propForm.ccir || null,
+      ccir_situacao:       propForm.ccir_situacao || null,
+      ccir_area_ha:        propForm.ccir_area_ha ? parseFloat(propForm.ccir_area_ha) : null,
+      condicao_produtor:   propForm.condicao_produtor || null,
+      atividade_principal: propForm.atividade_principal || null,
+      caf_dap:             propForm.caf_dap || null,
+    }
+    if (editPropId) {
+      const { error } = await supabase.from('rural_properties').update(payload).eq('id', editPropId)
+      if (error) { setPropError(error.message); setPropSaving(false); return }
+      setProperties(prev => prev.map(p => p.id === editPropId ? { ...propForm, id: editPropId } : p))
+    } else {
+      const { data, error } = await supabase.from('rural_properties').insert(payload).select().single()
+      if (error) { setPropError(error.message); setPropSaving(false); return }
+      setProperties(prev => [...prev, { ...propForm, id: data.id }])
+    }
+    setPropSaving(false); setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP)
+  }
+
+  async function handlePropDelete() {
+    if (!deletePropId) return
+    setDeletingProp(true)
+    await supabase.from('rural_properties').delete().eq('id', deletePropId)
+    setProperties(prev => prev.filter(p => p.id !== deletePropId))
+    setDeletePropId(null); setDeletingProp(false)
+  }
+
+  function openEditProp(p: RuralProperty) {
+    setPropForm({ nirf: p.nirf, nome: p.nome, municipio: p.municipio, uf: p.uf, area_declarada_ha: p.area_declarada_ha, car_numero: p.car_numero, car_status: p.car_status, car_area_ha: p.car_area_ha, ccir: p.ccir, ccir_situacao: p.ccir_situacao, ccir_area_ha: p.ccir_area_ha, condicao_produtor: p.condicao_produtor, atividade_principal: p.atividade_principal, caf_dap: p.caf_dap })
+    setEditPropId(p.id); setPropFormOpen(true); setPropError('')
+  }
 
   // Derived: lookup of uploaded docs by doc_type
   const docsByKey: Record<string, UploadedDoc[]> = {}
@@ -565,10 +746,12 @@ export default function ClientProfilePage() {
       </div>
 
       {/* ── Tabs ── */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <TabBtn id="overview" label="Visão Geral" />
         <TabBtn id="docs"     label="Solicitações" />
         <TabBtn id="data"     label="Dados da Solicitação" />
+        <TabBtn id="pessoa"   label="Pessoa & Contato" />
+        <TabBtn id="imovel"   label="Imóvel Rural" />
       </div>
 
       {/* ══════════════════════════════════════════════════════════ */}
@@ -1142,6 +1325,298 @@ export default function ClientProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB 4 — PESSOA & CONTATO                                  */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === 'pessoa' && (() => {
+        const F = pessoaForm
+        const set = (k: keyof typeof pessoaForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+          setPessoaForm(prev => ({ ...prev, [k]: e.target.value }))
+        const Label = ({ text, required }: { text: string; required?: boolean }) => (
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>
+            {text}{required && <span style={{ color: 'var(--brand-orange)', marginLeft: '2px' }}>*</span>}
+          </div>
+        )
+        const Field = ({ label, fieldKey, placeholder, required, readOnly }: { label: string; fieldKey: keyof typeof pessoaForm; placeholder?: string; required?: boolean; readOnly?: boolean }) => (
+          <div>
+            <Label text={label} required={required} />
+            <input
+              className="input-field"
+              style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
+              value={(F as any)[fieldKey]}
+              onChange={set(fieldKey)}
+              placeholder={placeholder}
+              readOnly={readOnly}
+            />
+          </div>
+        )
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* Identificação */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Identificação</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <Field label="CPF"          fieldKey="cpf"              placeholder="000.000.000-00" />
+                <Field label="Nome completo" fieldKey="name"             placeholder="Nome completo" required />
+                <Field label="Data de nascimento" fieldKey="dateOfBirth" placeholder="DD/MM/AAAA" />
+                <Field label="Status CPF"   fieldKey="cpfStatus"         placeholder="Regular" readOnly />
+                <Field label="CNPJ (se PJ)" fieldKey="cnpj"              placeholder="00.000.000/0001-00" />
+                <Field label="Razão social" fieldKey="razaoSocial"       placeholder="Preenchido via CNPJ" readOnly />
+                <Field label="CNAE principal" fieldKey="cnae"            placeholder="—" readOnly />
+                <Field label="Natureza jurídica" fieldKey="naturezaJuridica" placeholder="—" readOnly />
+              </div>
+            </div>
+
+            {/* Endereço */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Endereço</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <Field label="CEP"        fieldKey="cep"         placeholder="00000-000" />
+                <Field label="Logradouro" fieldKey="logradouro"  placeholder="Preenchido via CEP" readOnly />
+                <Field label="Número"     fieldKey="numero"      placeholder="123" required />
+                <Field label="Complemento" fieldKey="complemento" placeholder="Apto, sala…" />
+                <Field label="Bairro"     fieldKey="bairro"      placeholder="—" readOnly />
+                <Field label="Município"  fieldKey="city"        placeholder="—" readOnly />
+                <Field label="UF"         fieldKey="state"       placeholder="—" readOnly />
+                <Field label="Código IBGE" fieldKey="ibgeCode"   placeholder="—" readOnly />
+              </div>
+            </div>
+
+            {/* Contato */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Contato</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <Field label="WhatsApp / Celular" fieldKey="whatsapp" placeholder="(00) 00000-0000" required />
+                <Field label="E-mail"             fieldKey="email"    placeholder="produtor@email.com" />
+                <div>
+                  <Label text="Como conheceu?" />
+                  <select
+                    className="input-field"
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                    value={F.comoConheceu}
+                    onChange={set('comoConheceu')}
+                  >
+                    <option value="">Selecionar…</option>
+                    {['Indicação', 'Sindicato / Cooperativa', 'Redes sociais', 'Outros'].map(o => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Save bar */}
+            {pessoaError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>{pessoaError}</div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={handlePessoaSave}
+                disabled={pessoaSaving}
+                className="btn-primary"
+                style={{ opacity: pessoaSaving ? 0.7 : 1 }}
+              >
+                {pessoaSaving ? 'Salvando…' : 'Salvar dados'}
+              </button>
+              {pessoaSaved && (
+                <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Salvo com sucesso</span>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ══════════════════════════════════════════════════════════ */}
+      {/* TAB 5 — IMÓVEL RURAL                                      */}
+      {/* ══════════════════════════════════════════════════════════ */}
+      {tab === 'imovel' && (() => {
+        const PF = propForm
+        const setP = (k: keyof typeof propForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+          setPropForm(prev => ({ ...prev, [k]: e.target.value }))
+        const Label = ({ text, required }: { text: string; required?: boolean }) => (
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>
+            {text}{required && <span style={{ color: 'var(--brand-orange)', marginLeft: '2px' }}>*</span>}
+          </div>
+        )
+        const PField = ({ label, fieldKey, placeholder, readOnly }: { label: string; fieldKey: keyof typeof propForm; placeholder?: string; readOnly?: boolean }) => (
+          <div>
+            <Label text={label} />
+            <input
+              className="input-field"
+              style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
+              value={(PF as any)[fieldKey]}
+              onChange={setP(fieldKey)}
+              placeholder={placeholder}
+              readOnly={readOnly}
+            />
+          </div>
+        )
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* Property list */}
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205' }}>
+                  Imóveis Rurais
+                  {properties.length > 0 && (
+                    <span style={{ marginLeft: '8px', background: '#FDF0EB', color: 'var(--brand-orange)', borderRadius: '10px', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>
+                      {properties.length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setPropForm(EMPTY_PROP); setEditPropId(null); setPropError(''); setPropFormOpen(true) }}
+                  style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  + Adicionar Imóvel
+                </button>
+              </div>
+
+              {propsLoading ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
+              ) : properties.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: '#878C91' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '10px' }}>🌾</div>
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#010205', marginBottom: '4px' }}>Nenhum imóvel cadastrado</p>
+                  <p style={{ fontSize: '12px', lineHeight: 1.6 }}>Adicione os dados do imóvel rural do produtor.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {properties.map(p => (
+                    <div key={p.id} style={{ border: '1.5px solid var(--color-border)', borderRadius: '10px', padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>{p.nome || '(sem nome)'}</div>
+                          <div style={{ fontSize: '12px', color: '#878C91' }}>
+                            {[p.municipio, p.uf].filter(Boolean).join(' — ')}
+                            {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
+                            {p.nirf && ` · NIRF: ${p.nirf}`}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#878C91', marginTop: '2px' }}>
+                            {p.condicao_produtor && <span style={{ marginRight: '10px' }}>{p.condicao_produtor}</span>}
+                            {p.atividade_principal && <span>{p.atividade_principal}</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                          <button
+                            onClick={() => openEditProp(p)}
+                            style={{ padding: '5px 12px', border: '1.5px solid var(--color-border)', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => setDeletePropId(p.id)}
+                            style={{ padding: '5px 12px', border: '1.5px solid #fecaca', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add / Edit form */}
+            {propFormOpen && (
+              <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid var(--brand-orange)' }}>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>
+                  {editPropId ? 'Editar Imóvel' : 'Novo Imóvel Rural'}
+                </div>
+
+                {/* Dados do Imóvel */}
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Dados do Imóvel</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                  <PField label="NIRF"                  fieldKey="nirf"              placeholder="0000000-0" />
+                  <PField label="Nome da propriedade"    fieldKey="nome"              placeholder="Fazenda São João" />
+                  <PField label="Município (imóvel)"     fieldKey="municipio"         placeholder="—" readOnly />
+                  <PField label="UF"                     fieldKey="uf"                placeholder="—" readOnly />
+                  <PField label="Área declarada (ha)"    fieldKey="area_declarada_ha" placeholder="—" readOnly />
+                  <div />
+                  <PField label="CAR número"             fieldKey="car_numero"        placeholder="SP-XXXXXXX-XXXX…" />
+                  <PField label="Status CAR"             fieldKey="car_status"        placeholder="—" readOnly />
+                  <PField label="Área total CAR (ha)"    fieldKey="car_area_ha"       placeholder="—" readOnly />
+                  <div />
+                  <PField label="CCIR (código SNCR)"     fieldKey="ccir"              placeholder="Código SNCR…" />
+                  <PField label="Situação CCIR"          fieldKey="ccir_situacao"     placeholder="—" readOnly />
+                  <PField label="Área SNCR (ha)"         fieldKey="ccir_area_ha"      placeholder="—" readOnly />
+                  <div />
+                </div>
+
+                {/* Situação Fundiária */}
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Situação Fundiária</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+                  <div>
+                    <Label text="Condição do produtor" required />
+                    <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={PF.condicao_produtor} onChange={setP('condicao_produtor')}>
+                      <option value="">Selecionar…</option>
+                      {['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <Label text="Atividade principal" required />
+                    <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={PF.atividade_principal} onChange={setP('atividade_principal')}>
+                      <option value="">Selecionar…</option>
+                      {[
+                        'Agricultura — lavoura temporária',
+                        'Agricultura — lavoura permanente',
+                        'Pecuária bovina',
+                        'Suinocultura',
+                        'Avicultura',
+                        'Aquicultura',
+                        'Silvicultura / SAF',
+                      ].map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <PField label="CAF / DAP" fieldKey="caf_dap" placeholder="Número CAF…" />
+                </div>
+
+                {propError && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>
+                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={handlePropSave}
+                    disabled={propSaving}
+                    className="btn-primary"
+                    style={{ opacity: propSaving ? 0.7 : 1 }}
+                  >
+                    {propSaving ? 'Salvando…' : editPropId ? 'Salvar alterações' : 'Adicionar imóvel'}
+                  </button>
+                  <button
+                    onClick={() => { setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP) }}
+                    style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Delete property confirm */}
+            {deletePropId && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} onClick={() => setDeletePropId(null)} />
+                <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: '14px', padding: '28px', width: '360px', zIndex: 301, boxShadow: '0 8px 48px rgba(0,0,0,0.18)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>🗑️</div>
+                  <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '16px', color: '#010205', marginBottom: '8px' }}>Excluir imóvel?</div>
+                  <p style={{ fontSize: '13px', color: '#878C91', marginBottom: '24px', lineHeight: 1.6 }}>Esta ação não pode ser desfeita.</p>
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                    <button onClick={() => setDeletePropId(null)} style={{ padding: '9px 20px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={handlePropDelete} disabled={deletingProp} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: deletingProp ? '#f87171' : '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: deletingProp ? 'not-allowed' : 'pointer' }}>
+                      {deletingProp ? 'Excluindo…' : 'Excluir'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* NOVA SOLICITAÇÃO DRAWER                                    */}
