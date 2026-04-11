@@ -516,52 +516,65 @@ export default function ClientProfilePage() {
     setDeletePropId(null); setDeletingProp(false)
   }
 
-  // ── API lookup handlers ──
+  // ── API lookup handlers — call external APIs directly (both have CORS enabled) ──
   async function lookupCPF() {
+    const digits = pessoaForm.cpf.replace(/\D/g, '')
+    if (digits.length !== 11) { setCpfLookupError('Digite um CPF válido (11 dígitos).'); return }
     setCpfLookupLoading(true); setCpfLookupError('')
     try {
-      const digits = pessoaForm.cpf.replace(/\D/g, '')
-      const res  = await fetch(`/api/lookup/cpf?cpf=${digits}`)
-      const data = await res.json()
-      if (data.error) { setCpfLookupError(data.error); return }
+      const res  = await fetch(`https://brasilapi.com.br/api/cpf/v1/${digits}`, { headers: { Accept: 'application/json' } })
+      const body = await res.text()
+      // BrasilAPI CPF endpoint currently returns HTML 404 (endpoint removed)
+      if (!res.ok || body.trim().startsWith('<')) {
+        setCpfLookupError('Consulta de CPF indisponível — verifique manualmente na Receita Federal (gov.br/receitafederal).')
+        return
+      }
+      const data = JSON.parse(body)
       setPessoaForm(p => ({
         ...p,
         name:      data.nome      ? (p.name || data.nome) : p.name,
-        cpfStatus: data.situacao  ?? p.cpfStatus,
+        cpfStatus: data.situacao?.descricao ?? data.situacao ?? p.cpfStatus,
       }))
     } catch { setCpfLookupError('Erro de rede. Tente novamente.') }
     finally   { setCpfLookupLoading(false) }
   }
 
   async function lookupCNPJ() {
+    const digits = pessoaForm.cnpj.replace(/\D/g, '')
+    if (digits.length !== 14) { setCnpjLookupError('Digite um CNPJ válido (14 dígitos).'); return }
     setCnpjLookupLoading(true); setCnpjLookupError('')
     try {
-      const digits = pessoaForm.cnpj.replace(/\D/g, '')
-      const res  = await fetch(`/api/lookup/cnpj?cnpj=${digits}`)
+      const res  = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setCnpjLookupError(err.message ?? `CNPJ não encontrado (${res.status}).`)
+        return
+      }
       const data = await res.json()
-      if (data.error) { setCnpjLookupError(data.error); return }
       setPessoaForm(p => ({
         ...p,
-        razaoSocial:      data.razao_social       ?? p.razaoSocial,
-        cnae:             data.cnae?.toString()    ?? p.cnae,
-        naturezaJuridica: data.natureza_juridica   ?? p.naturezaJuridica,
+        razaoSocial:      data.razao_social                    ?? p.razaoSocial,
+        cnae:             data.cnae_fiscal?.toString()          ?? p.cnae,
+        naturezaJuridica: data.natureza_juridica               ?? p.naturezaJuridica,
       }))
     } catch { setCnpjLookupError('Erro de rede. Tente novamente.') }
     finally   { setCnpjLookupLoading(false) }
   }
 
   async function lookupCEP() {
+    const digits = pessoaForm.cep.replace(/\D/g, '')
+    if (digits.length !== 8) { setCepLookupError('Digite um CEP válido (8 dígitos).'); return }
     setCepLookupLoading(true); setCepLookupError('')
     try {
-      const digits = pessoaForm.cep.replace(/\D/g, '')
-      const res  = await fetch(`/api/lookup/cep?cep=${digits}`)
+      const res  = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      if (!res.ok) { setCepLookupError('CEP não encontrado.'); return }
       const data = await res.json()
-      if (data.error) { setCepLookupError(data.error); return }
+      if (data.erro) { setCepLookupError('CEP não encontrado.'); return }
       setPessoaForm(p => ({
         ...p,
         logradouro: data.logradouro ?? p.logradouro,
         bairro:     data.bairro     ?? p.bairro,
-        city:       data.cidade     ?? p.city,
+        city:       data.localidade ?? p.city,
         state:      data.uf         ?? p.state,
         ibgeCode:   data.ibge       ?? p.ibgeCode,
       }))
