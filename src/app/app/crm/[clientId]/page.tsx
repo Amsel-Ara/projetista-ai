@@ -383,7 +383,6 @@ export default function ClientProfilePage() {
 
   // Save Pessoa & Contato
   async function handlePessoaSave() {
-    if (!pessoaForm.name.trim()) { setPessoaError('Nome é obrigatório.'); return }
     setPessoaSaving(true); setPessoaError(''); setPessoaSaved(false)
     const { error } = await supabase.from('clients').update({
       name:               pessoaForm.name,
@@ -1359,7 +1358,7 @@ export default function ClientProfilePage() {
               <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Identificação</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Field label="CPF"          fieldKey="cpf"              placeholder="000.000.000-00" />
-                <Field label="Nome completo" fieldKey="name"             placeholder="Nome completo" required />
+                <Field label="Nome completo" fieldKey="name"             placeholder="Nome completo" />
                 <Field label="Data de nascimento" fieldKey="dateOfBirth" placeholder="DD/MM/AAAA" />
                 <Field label="Status CPF"   fieldKey="cpfStatus"         placeholder="Regular" readOnly />
                 <Field label="CNPJ (se PJ)" fieldKey="cnpj"              placeholder="00.000.000/0001-00" />
@@ -1375,7 +1374,7 @@ export default function ClientProfilePage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Field label="CEP"        fieldKey="cep"         placeholder="00000-000" />
                 <Field label="Logradouro" fieldKey="logradouro"  placeholder="Preenchido via CEP" readOnly />
-                <Field label="Número"     fieldKey="numero"      placeholder="123" required />
+                <Field label="Número"     fieldKey="numero"      placeholder="123" />
                 <Field label="Complemento" fieldKey="complemento" placeholder="Apto, sala…" />
                 <Field label="Bairro"     fieldKey="bairro"      placeholder="—" readOnly />
                 <Field label="Município"  fieldKey="city"        placeholder="—" readOnly />
@@ -1388,7 +1387,7 @@ export default function ClientProfilePage() {
             <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
               <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Contato</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Field label="WhatsApp / Celular" fieldKey="whatsapp" placeholder="(00) 00000-0000" required />
+                <Field label="WhatsApp / Celular" fieldKey="whatsapp" placeholder="(00) 00000-0000" />
                 <Field label="E-mail"             fieldKey="email"    placeholder="produtor@email.com" />
                 <div>
                   <Label text="Como conheceu?" />
