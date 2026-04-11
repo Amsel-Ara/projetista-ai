@@ -297,6 +297,14 @@ export default function ClientProfilePage() {
   const [pessoaError,   setPessoaError]   = useState('')
   const [pessoaSaved,   setPessoaSaved]   = useState(false)
 
+  // ── API Lookups ──
+  const [cpfLookupLoading,  setCpfLookupLoading]  = useState(false)
+  const [cpfLookupError,    setCpfLookupError]    = useState('')
+  const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false)
+  const [cnpjLookupError,   setCnpjLookupError]   = useState('')
+  const [cepLookupLoading,  setCepLookupLoading]  = useState(false)
+  const [cepLookupError,    setCepLookupError]    = useState('')
+
   // ── Imóvel Rural ──
   const [properties,       setProperties]       = useState<RuralProperty[]>([])
   const [propsLoading,     setPropsLoading]     = useState(false)
@@ -506,6 +514,59 @@ export default function ClientProfilePage() {
     await supabase.from('rural_properties').delete().eq('id', deletePropId)
     setProperties(prev => prev.filter(p => p.id !== deletePropId))
     setDeletePropId(null); setDeletingProp(false)
+  }
+
+  // ── API lookup handlers ──
+  async function lookupCPF() {
+    setCpfLookupLoading(true); setCpfLookupError('')
+    try {
+      const digits = pessoaForm.cpf.replace(/\D/g, '')
+      const res  = await fetch(`/api/lookup/cpf?cpf=${digits}`)
+      const data = await res.json()
+      if (data.error) { setCpfLookupError(data.error); return }
+      setPessoaForm(p => ({
+        ...p,
+        name:      data.nome      ? (p.name || data.nome) : p.name,
+        cpfStatus: data.situacao  ?? p.cpfStatus,
+      }))
+    } catch { setCpfLookupError('Erro de rede. Tente novamente.') }
+    finally   { setCpfLookupLoading(false) }
+  }
+
+  async function lookupCNPJ() {
+    setCnpjLookupLoading(true); setCnpjLookupError('')
+    try {
+      const digits = pessoaForm.cnpj.replace(/\D/g, '')
+      const res  = await fetch(`/api/lookup/cnpj?cnpj=${digits}`)
+      const data = await res.json()
+      if (data.error) { setCnpjLookupError(data.error); return }
+      setPessoaForm(p => ({
+        ...p,
+        razaoSocial:      data.razao_social       ?? p.razaoSocial,
+        cnae:             data.cnae?.toString()    ?? p.cnae,
+        naturezaJuridica: data.natureza_juridica   ?? p.naturezaJuridica,
+      }))
+    } catch { setCnpjLookupError('Erro de rede. Tente novamente.') }
+    finally   { setCnpjLookupLoading(false) }
+  }
+
+  async function lookupCEP() {
+    setCepLookupLoading(true); setCepLookupError('')
+    try {
+      const digits = pessoaForm.cep.replace(/\D/g, '')
+      const res  = await fetch(`/api/lookup/cep?cep=${digits}`)
+      const data = await res.json()
+      if (data.error) { setCepLookupError(data.error); return }
+      setPessoaForm(p => ({
+        ...p,
+        logradouro: data.logradouro ?? p.logradouro,
+        bairro:     data.bairro     ?? p.bairro,
+        city:       data.cidade     ?? p.city,
+        state:      data.uf         ?? p.state,
+        ibgeCode:   data.ibge       ?? p.ibgeCode,
+      }))
+    } catch { setCepLookupError('Erro de rede. Tente novamente.') }
+    finally   { setCepLookupLoading(false) }
   }
 
   function openEditProp(p: RuralProperty) {
@@ -1387,23 +1448,42 @@ export default function ClientProfilePage() {
             <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Identificação</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               {([
-                { key: 'cpf',              label: 'CPF',               placeholder: '000.000.000-00' },
+                { key: 'cpf',              label: 'CPF',               placeholder: '000.000.000-00', lookup: 'cpf' },
                 { key: 'name',             label: 'Nome completo',     placeholder: 'Nome completo' },
                 { key: 'dateOfBirth',      label: 'Data de nascimento',placeholder: 'DD/MM/AAAA' },
-                { key: 'cpfStatus',        label: 'Status CPF',        placeholder: 'Regular',              readOnly: true },
-                { key: 'cnpj',             label: 'CNPJ (se PJ)',      placeholder: '00.000.000/0001-00' },
-                { key: 'razaoSocial',      label: 'Razão social',      placeholder: 'Preenchido via CNPJ',  readOnly: true },
-                { key: 'cnae',             label: 'CNAE principal',    placeholder: '—',                    readOnly: true },
-                { key: 'naturezaJuridica', label: 'Natureza jurídica', placeholder: '—',                    readOnly: true },
-              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; readOnly?: boolean }[]).map(({ key, label, placeholder, readOnly }) => (
+                { key: 'cpfStatus',        label: 'Status CPF',        placeholder: '—', readOnly: true },
+                { key: 'cnpj',             label: 'CNPJ (se PJ)',      placeholder: '00.000.000/0001-00', lookup: 'cnpj' },
+                { key: 'razaoSocial',      label: 'Razão social',      placeholder: 'Preenchido via CNPJ', readOnly: true },
+                { key: 'cnae',             label: 'CNAE principal',    placeholder: '—', readOnly: true },
+                { key: 'naturezaJuridica', label: 'Natureza jurídica', placeholder: '—', readOnly: true },
+              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; readOnly?: boolean; lookup?: string }[]).map(({ key, label, placeholder, readOnly, lookup }) => (
                 <div key={key}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
-                    placeholder={placeholder} readOnly={readOnly} />
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input className="input-field" style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
+                      value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
+                      placeholder={placeholder} readOnly={readOnly} />
+                    {lookup === 'cpf' && (
+                      <button onClick={lookupCPF} disabled={cpfLookupLoading}
+                        style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cpfLookupLoading ? 0.6 : 1 }}>
+                        {cpfLookupLoading ? '…' : 'Buscar →'}
+                      </button>
+                    )}
+                    {lookup === 'cnpj' && (
+                      <button onClick={lookupCNPJ} disabled={cnpjLookupLoading}
+                        style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cnpjLookupLoading ? 0.6 : 1 }}>
+                        {cnpjLookupLoading ? '…' : 'Buscar →'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
+            {(cpfLookupError || cnpjLookupError) && (
+              <div style={{ marginTop: '12px', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626' }}>
+                {cpfLookupError || cnpjLookupError}
+              </div>
+            )}
           </div>
 
           {/* Endereço */}
@@ -1411,23 +1491,36 @@ export default function ClientProfilePage() {
             <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Endereço</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               {([
-                { key: 'cep',        label: 'CEP',         placeholder: '00000-000' },
-                { key: 'logradouro', label: 'Logradouro',  placeholder: 'Preenchido via CEP', readOnly: true },
+                { key: 'cep',        label: 'CEP',         placeholder: '00000-000', lookup: true },
+                { key: 'logradouro', label: 'Logradouro',  placeholder: 'Preenchido via CEP' },
                 { key: 'numero',     label: 'Número',      placeholder: '123' },
                 { key: 'complemento',label: 'Complemento', placeholder: 'Apto, sala…' },
-                { key: 'bairro',     label: 'Bairro',      placeholder: '—',                  readOnly: true },
-                { key: 'city',       label: 'Município',   placeholder: '—',                  readOnly: true },
-                { key: 'state',      label: 'UF',          placeholder: '—',                  readOnly: true },
-                { key: 'ibgeCode',   label: 'Código IBGE', placeholder: '—',                  readOnly: true },
-              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; readOnly?: boolean }[]).map(({ key, label, placeholder, readOnly }) => (
+                { key: 'bairro',     label: 'Bairro',      placeholder: '—' },
+                { key: 'city',       label: 'Município',   placeholder: '—' },
+                { key: 'state',      label: 'UF',          placeholder: '—' },
+                { key: 'ibgeCode',   label: 'Código IBGE', placeholder: '—' },
+              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; lookup?: boolean }[]).map(({ key, label, placeholder, lookup }) => (
                 <div key={key}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
-                    placeholder={placeholder} readOnly={readOnly} />
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input className="input-field" style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
+                      value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
+                      placeholder={placeholder} />
+                    {lookup && (
+                      <button onClick={lookupCEP} disabled={cepLookupLoading}
+                        style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cepLookupLoading ? 0.6 : 1 }}>
+                        {cepLookupLoading ? '…' : 'Buscar →'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
+            {cepLookupError && (
+              <div style={{ marginTop: '12px', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626' }}>
+                {cepLookupError}
+              </div>
+            )}
           </div>
 
           {/* Contato */}
