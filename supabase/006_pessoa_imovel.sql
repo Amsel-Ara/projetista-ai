@@ -58,8 +58,14 @@ CREATE TABLE IF NOT EXISTS rural_properties (
 -- ── 3. RLS for rural_properties ───────────────────────────────
 ALTER TABLE rural_properties ENABLE ROW LEVEL SECURITY;
 
+-- Drop first so the script is safe to re-run
+DROP POLICY IF EXISTS "rural_properties_select" ON rural_properties;
+DROP POLICY IF EXISTS "rural_properties_insert" ON rural_properties;
+DROP POLICY IF EXISTS "rural_properties_update" ON rural_properties;
+DROP POLICY IF EXISTS "rural_properties_delete" ON rural_properties;
+
 -- Users can read their own organisation's properties
-CREATE POLICY IF NOT EXISTS "rural_properties_select"
+CREATE POLICY "rural_properties_select"
   ON rural_properties FOR SELECT
   USING (
     organization_id IN (
@@ -68,7 +74,7 @@ CREATE POLICY IF NOT EXISTS "rural_properties_select"
   );
 
 -- Users can insert properties into their own organisation
-CREATE POLICY IF NOT EXISTS "rural_properties_insert"
+CREATE POLICY "rural_properties_insert"
   ON rural_properties FOR INSERT
   WITH CHECK (
     organization_id IN (
@@ -77,7 +83,7 @@ CREATE POLICY IF NOT EXISTS "rural_properties_insert"
   );
 
 -- Users can update their own organisation's properties
-CREATE POLICY IF NOT EXISTS "rural_properties_update"
+CREATE POLICY "rural_properties_update"
   ON rural_properties FOR UPDATE
   USING (
     organization_id IN (
@@ -86,7 +92,7 @@ CREATE POLICY IF NOT EXISTS "rural_properties_update"
   );
 
 -- Users can delete their own organisation's properties
-CREATE POLICY IF NOT EXISTS "rural_properties_delete"
+CREATE POLICY "rural_properties_delete"
   ON rural_properties FOR DELETE
   USING (
     organization_id IN (
