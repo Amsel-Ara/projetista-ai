@@ -1328,294 +1328,252 @@ export default function ClientProfilePage() {
       {/* ══════════════════════════════════════════════════════════ */}
       {/* TAB 4 — PESSOA & CONTATO                                  */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {tab === 'pessoa' && (() => {
-        const F = pessoaForm
-        const set = (k: keyof typeof pessoaForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-          setPessoaForm(prev => ({ ...prev, [k]: e.target.value }))
-        const Label = ({ text, required }: { text: string; required?: boolean }) => (
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>
-            {text}{required && <span style={{ color: 'var(--brand-orange)', marginLeft: '2px' }}>*</span>}
-          </div>
-        )
-        const Field = ({ label, fieldKey, placeholder, required, readOnly }: { label: string; fieldKey: keyof typeof pessoaForm; placeholder?: string; required?: boolean; readOnly?: boolean }) => (
-          <div>
-            <Label text={label} required={required} />
-            <input
-              className="input-field"
-              style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-              value={(F as any)[fieldKey]}
-              onChange={set(fieldKey)}
-              placeholder={placeholder}
-              readOnly={readOnly}
-            />
-          </div>
-        )
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {tab === 'pessoa' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* Identificação */}
-            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Identificação</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Field label="CPF"          fieldKey="cpf"              placeholder="000.000.000-00" />
-                <Field label="Nome completo" fieldKey="name"             placeholder="Nome completo" />
-                <Field label="Data de nascimento" fieldKey="dateOfBirth" placeholder="DD/MM/AAAA" />
-                <Field label="Status CPF"   fieldKey="cpfStatus"         placeholder="Regular" readOnly />
-                <Field label="CNPJ (se PJ)" fieldKey="cnpj"              placeholder="00.000.000/0001-00" />
-                <Field label="Razão social" fieldKey="razaoSocial"       placeholder="Preenchido via CNPJ" readOnly />
-                <Field label="CNAE principal" fieldKey="cnae"            placeholder="—" readOnly />
-                <Field label="Natureza jurídica" fieldKey="naturezaJuridica" placeholder="—" readOnly />
-              </div>
-            </div>
-
-            {/* Endereço */}
-            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Endereço</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Field label="CEP"        fieldKey="cep"         placeholder="00000-000" />
-                <Field label="Logradouro" fieldKey="logradouro"  placeholder="Preenchido via CEP" readOnly />
-                <Field label="Número"     fieldKey="numero"      placeholder="123" />
-                <Field label="Complemento" fieldKey="complemento" placeholder="Apto, sala…" />
-                <Field label="Bairro"     fieldKey="bairro"      placeholder="—" readOnly />
-                <Field label="Município"  fieldKey="city"        placeholder="—" readOnly />
-                <Field label="UF"         fieldKey="state"       placeholder="—" readOnly />
-                <Field label="Código IBGE" fieldKey="ibgeCode"   placeholder="—" readOnly />
-              </div>
-            </div>
-
-            {/* Contato */}
-            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Contato</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Field label="WhatsApp / Celular" fieldKey="whatsapp" placeholder="(00) 00000-0000" />
-                <Field label="E-mail"             fieldKey="email"    placeholder="produtor@email.com" />
-                <div>
-                  <Label text="Como conheceu?" />
-                  <select
-                    className="input-field"
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={F.comoConheceu}
-                    onChange={set('comoConheceu')}
-                  >
-                    <option value="">Selecionar…</option>
-                    {['Indicação', 'Sindicato / Cooperativa', 'Redes sociais', 'Outros'].map(o => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
+          {/* Identificação */}
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Identificação</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {([
+                { key: 'cpf',              label: 'CPF',               placeholder: '000.000.000-00' },
+                { key: 'name',             label: 'Nome completo',     placeholder: 'Nome completo' },
+                { key: 'dateOfBirth',      label: 'Data de nascimento',placeholder: 'DD/MM/AAAA' },
+                { key: 'cpfStatus',        label: 'Status CPF',        placeholder: 'Regular',              readOnly: true },
+                { key: 'cnpj',             label: 'CNPJ (se PJ)',      placeholder: '00.000.000/0001-00' },
+                { key: 'razaoSocial',      label: 'Razão social',      placeholder: 'Preenchido via CNPJ',  readOnly: true },
+                { key: 'cnae',             label: 'CNAE principal',    placeholder: '—',                    readOnly: true },
+                { key: 'naturezaJuridica', label: 'Natureza jurídica', placeholder: '—',                    readOnly: true },
+              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; readOnly?: boolean }[]).map(({ key, label, placeholder, readOnly }) => (
+                <div key={key}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
+                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder} readOnly={readOnly} />
                 </div>
-              </div>
-            </div>
-
-            {/* Save bar */}
-            {pessoaError && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>{pessoaError}</div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button
-                onClick={handlePessoaSave}
-                disabled={pessoaSaving}
-                className="btn-primary"
-                style={{ opacity: pessoaSaving ? 0.7 : 1 }}
-              >
-                {pessoaSaving ? 'Salvando…' : 'Salvar dados'}
-              </button>
-              {pessoaSaved && (
-                <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Salvo com sucesso</span>
-              )}
+              ))}
             </div>
           </div>
-        )
-      })()}
+
+          {/* Endereço */}
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Endereço</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {([
+                { key: 'cep',        label: 'CEP',         placeholder: '00000-000' },
+                { key: 'logradouro', label: 'Logradouro',  placeholder: 'Preenchido via CEP', readOnly: true },
+                { key: 'numero',     label: 'Número',      placeholder: '123' },
+                { key: 'complemento',label: 'Complemento', placeholder: 'Apto, sala…' },
+                { key: 'bairro',     label: 'Bairro',      placeholder: '—',                  readOnly: true },
+                { key: 'city',       label: 'Município',   placeholder: '—',                  readOnly: true },
+                { key: 'state',      label: 'UF',          placeholder: '—',                  readOnly: true },
+                { key: 'ibgeCode',   label: 'Código IBGE', placeholder: '—',                  readOnly: true },
+              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; readOnly?: boolean }[]).map(({ key, label, placeholder, readOnly }) => (
+                <div key={key}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
+                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder} readOnly={readOnly} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Contato */}
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Contato</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {([
+                { key: 'whatsapp', label: 'WhatsApp / Celular', placeholder: '(00) 00000-0000' },
+                { key: 'email',    label: 'E-mail',             placeholder: 'produtor@email.com' },
+              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string }[]).map(({ key, label, placeholder }) => (
+                <div key={key}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder} />
+                </div>
+              ))}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Como conheceu?</div>
+                <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                  value={pessoaForm.comoConheceu} onChange={e => setPessoaForm(p => ({ ...p, comoConheceu: e.target.value }))}>
+                  <option value="">Selecionar…</option>
+                  {['Indicação', 'Sindicato / Cooperativa', 'Redes sociais', 'Outros'].map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Save bar */}
+          {pessoaError && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>{pessoaError}</div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={handlePessoaSave} disabled={pessoaSaving} className="btn-primary" style={{ opacity: pessoaSaving ? 0.7 : 1 }}>
+              {pessoaSaving ? 'Salvando…' : 'Salvar dados'}
+            </button>
+            {pessoaSaved && <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Salvo com sucesso</span>}
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* TAB 5 — IMÓVEL RURAL                                      */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {tab === 'imovel' && (() => {
-        const PF = propForm
-        const setP = (k: keyof typeof propForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-          setPropForm(prev => ({ ...prev, [k]: e.target.value }))
-        const Label = ({ text, required }: { text: string; required?: boolean }) => (
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>
-            {text}{required && <span style={{ color: 'var(--brand-orange)', marginLeft: '2px' }}>*</span>}
-          </div>
-        )
-        const PField = ({ label, fieldKey, placeholder, readOnly }: { label: string; fieldKey: keyof typeof propForm; placeholder?: string; readOnly?: boolean }) => (
-          <div>
-            <Label text={label} />
-            <input
-              className="input-field"
-              style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-              value={(PF as any)[fieldKey]}
-              onChange={setP(fieldKey)}
-              placeholder={placeholder}
-              readOnly={readOnly}
-            />
-          </div>
-        )
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {tab === 'imovel' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-            {/* Property list */}
-            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205' }}>
-                  Imóveis Rurais
-                  {properties.length > 0 && (
-                    <span style={{ marginLeft: '8px', background: '#FDF0EB', color: 'var(--brand-orange)', borderRadius: '10px', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>
-                      {properties.length}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => { setPropForm(EMPTY_PROP); setEditPropId(null); setPropError(''); setPropFormOpen(true) }}
-                  style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  + Adicionar Imóvel
-                </button>
+          {/* Property list */}
+          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205' }}>
+                Imóveis Rurais
+                {properties.length > 0 && (
+                  <span style={{ marginLeft: '8px', background: '#FDF0EB', color: 'var(--brand-orange)', borderRadius: '10px', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>
+                    {properties.length}
+                  </span>
+                )}
               </div>
-
-              {propsLoading ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
-              ) : properties.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#878C91' }}>
-                  <div style={{ fontSize: '28px', marginBottom: '10px' }}>🌾</div>
-                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#010205', marginBottom: '4px' }}>Nenhum imóvel cadastrado</p>
-                  <p style={{ fontSize: '12px', lineHeight: 1.6 }}>Adicione os dados do imóvel rural do produtor.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {properties.map(p => (
-                    <div key={p.id} style={{ border: '1.5px solid var(--color-border)', borderRadius: '10px', padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>{p.nome || '(sem nome)'}</div>
-                          <div style={{ fontSize: '12px', color: '#878C91' }}>
-                            {[p.municipio, p.uf].filter(Boolean).join(' — ')}
-                            {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
-                            {p.nirf && ` · NIRF: ${p.nirf}`}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#878C91', marginTop: '2px' }}>
-                            {p.condicao_produtor && <span style={{ marginRight: '10px' }}>{p.condicao_produtor}</span>}
-                            {p.atividade_principal && <span>{p.atividade_principal}</span>}
-                          </div>
+              <button onClick={() => { setPropForm(EMPTY_PROP); setEditPropId(null); setPropError(''); setPropFormOpen(true) }}
+                style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                + Adicionar Imóvel
+              </button>
+            </div>
+            {propsLoading ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
+            ) : properties.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#878C91' }}>
+                <div style={{ fontSize: '28px', marginBottom: '10px' }}>🌾</div>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#010205', marginBottom: '4px' }}>Nenhum imóvel cadastrado</p>
+                <p style={{ fontSize: '12px', lineHeight: 1.6 }}>Adicione os dados do imóvel rural do produtor.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {properties.map(p => (
+                  <div key={p.id} style={{ border: '1.5px solid var(--color-border)', borderRadius: '10px', padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>{p.nome || '(sem nome)'}</div>
+                        <div style={{ fontSize: '12px', color: '#878C91' }}>
+                          {[p.municipio, p.uf].filter(Boolean).join(' — ')}
+                          {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
+                          {p.nirf && ` · NIRF: ${p.nirf}`}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                          <button
-                            onClick={() => openEditProp(p)}
-                            style={{ padding: '5px 12px', border: '1.5px solid var(--color-border)', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => setDeletePropId(p.id)}
-                            style={{ padding: '5px 12px', border: '1.5px solid #fecaca', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}
-                          >
-                            Excluir
-                          </button>
+                        <div style={{ fontSize: '12px', color: '#878C91', marginTop: '2px' }}>
+                          {p.condicao_produtor && <span style={{ marginRight: '10px' }}>{p.condicao_produtor}</span>}
+                          {p.atividade_principal && <span>{p.atividade_principal}</span>}
                         </div>
                       </div>
+                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                        <button onClick={() => openEditProp(p)} style={{ padding: '5px 12px', border: '1.5px solid var(--color-border)', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>Editar</button>
+                        <button onClick={() => setDeletePropId(p.id)} style={{ padding: '5px 12px', border: '1.5px solid #fecaca', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}>Excluir</button>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Add / Edit form */}
-            {propFormOpen && (
-              <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid var(--brand-orange)' }}>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>
-                  {editPropId ? 'Editar Imóvel' : 'Novo Imóvel Rural'}
-                </div>
-
-                {/* Dados do Imóvel */}
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Dados do Imóvel</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                  <PField label="NIRF"                  fieldKey="nirf"              placeholder="0000000-0" />
-                  <PField label="Nome da propriedade"    fieldKey="nome"              placeholder="Fazenda São João" />
-                  <PField label="Município (imóvel)"     fieldKey="municipio"         placeholder="—" readOnly />
-                  <PField label="UF"                     fieldKey="uf"                placeholder="—" readOnly />
-                  <PField label="Área declarada (ha)"    fieldKey="area_declarada_ha" placeholder="—" readOnly />
-                  <div />
-                  <PField label="CAR número"             fieldKey="car_numero"        placeholder="SP-XXXXXXX-XXXX…" />
-                  <PField label="Status CAR"             fieldKey="car_status"        placeholder="—" readOnly />
-                  <PField label="Área total CAR (ha)"    fieldKey="car_area_ha"       placeholder="—" readOnly />
-                  <div />
-                  <PField label="CCIR (código SNCR)"     fieldKey="ccir"              placeholder="Código SNCR…" />
-                  <PField label="Situação CCIR"          fieldKey="ccir_situacao"     placeholder="—" readOnly />
-                  <PField label="Área SNCR (ha)"         fieldKey="ccir_area_ha"      placeholder="—" readOnly />
-                  <div />
-                </div>
-
-                {/* Situação Fundiária */}
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Situação Fundiária</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
-                  <div>
-                    <Label text="Condição do produtor" required />
-                    <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={PF.condicao_produtor} onChange={setP('condicao_produtor')}>
-                      <option value="">Selecionar…</option>
-                      {['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
                   </div>
-                  <div>
-                    <Label text="Atividade principal" required />
-                    <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} value={PF.atividade_principal} onChange={setP('atividade_principal')}>
-                      <option value="">Selecionar…</option>
-                      {[
-                        'Agricultura — lavoura temporária',
-                        'Agricultura — lavoura permanente',
-                        'Pecuária bovina',
-                        'Suinocultura',
-                        'Avicultura',
-                        'Aquicultura',
-                        'Silvicultura / SAF',
-                      ].map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                  <PField label="CAF / DAP" fieldKey="caf_dap" placeholder="Número CAF…" />
-                </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                {propError && (
-                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>
+          {/* Add / Edit form */}
+          {propFormOpen && (
+            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid var(--brand-orange)' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>
+                {editPropId ? 'Editar Imóvel' : 'Novo Imóvel Rural'}
+              </div>
+
+              {/* Dados do Imóvel */}
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Dados do Imóvel</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                {([
+                  { key: 'nirf',              label: 'NIRF',               placeholder: '0000000-0' },
+                  { key: 'nome',              label: 'Nome da propriedade', placeholder: 'Fazenda São João' },
+                  { key: 'municipio',         label: 'Município (imóvel)',  placeholder: '—',               readOnly: true },
+                  { key: 'uf',                label: 'UF',                  placeholder: '—',               readOnly: true },
+                  { key: 'area_declarada_ha', label: 'Área declarada (ha)', placeholder: '—',               readOnly: true },
+                  { key: '_spacer1' },
+                  { key: 'car_numero',        label: 'CAR número',          placeholder: 'SP-XXXXXXX-XXXX…' },
+                  { key: 'car_status',        label: 'Status CAR',          placeholder: '—',               readOnly: true },
+                  { key: 'car_area_ha',       label: 'Área total CAR (ha)', placeholder: '—',               readOnly: true },
+                  { key: '_spacer2' },
+                  { key: 'ccir',              label: 'CCIR (código SNCR)',  placeholder: 'Código SNCR…' },
+                  { key: 'ccir_situacao',     label: 'Situação CCIR',       placeholder: '—',               readOnly: true },
+                  { key: 'ccir_area_ha',      label: 'Área SNCR (ha)',      placeholder: '—',               readOnly: true },
+                  { key: '_spacer3' },
+                ] as { key: string; label?: string; placeholder?: string; readOnly?: boolean }[]).map(({ key, label, placeholder, readOnly }) =>
+                  key.startsWith('_') ? <div key={key} /> : (
+                    <div key={key}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                      <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
+                        value={(propForm as any)[key]} onChange={e => setPropForm(p => ({ ...p, [key]: e.target.value }))}
+                        placeholder={placeholder} readOnly={readOnly} />
+                    </div>
+                  )
                 )}
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={handlePropSave}
-                    disabled={propSaving}
-                    className="btn-primary"
-                    style={{ opacity: propSaving ? 0.7 : 1 }}
-                  >
-                    {propSaving ? 'Salvando…' : editPropId ? 'Salvar alterações' : 'Adicionar imóvel'}
-                  </button>
-                  <button
-                    onClick={() => { setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP) }}
-                    style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}
-                  >
-                    Cancelar
+              </div>
+
+              {/* Situação Fundiária */}
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Situação Fundiária</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Condição do produtor</div>
+                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                    value={propForm.condicao_produtor} onChange={e => setPropForm(p => ({ ...p, condicao_produtor: e.target.value }))}>
+                    <option value="">Selecionar…</option>
+                    {['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Atividade principal</div>
+                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                    value={propForm.atividade_principal} onChange={e => setPropForm(p => ({ ...p, atividade_principal: e.target.value }))}>
+                    <option value="">Selecionar…</option>
+                    {['Agricultura — lavoura temporária', 'Agricultura — lavoura permanente', 'Pecuária bovina', 'Suinocultura', 'Avicultura', 'Aquicultura', 'Silvicultura / SAF'].map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>CAF / DAP</div>
+                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                    value={propForm.caf_dap} onChange={e => setPropForm(p => ({ ...p, caf_dap: e.target.value }))}
+                    placeholder="Número CAF…" />
+                </div>
+              </div>
+
+              {propError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={handlePropSave} disabled={propSaving} className="btn-primary" style={{ opacity: propSaving ? 0.7 : 1 }}>
+                  {propSaving ? 'Salvando…' : editPropId ? 'Salvar alterações' : 'Adicionar imóvel'}
+                </button>
+                <button onClick={() => { setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP) }}
+                  style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Delete property confirm */}
+          {deletePropId && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} onClick={() => setDeletePropId(null)} />
+              <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: '14px', padding: '28px', width: '360px', zIndex: 301, boxShadow: '0 8px 48px rgba(0,0,0,0.18)', textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🗑️</div>
+                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '16px', color: '#010205', marginBottom: '8px' }}>Excluir imóvel?</div>
+                <p style={{ fontSize: '13px', color: '#878C91', marginBottom: '24px', lineHeight: 1.6 }}>Esta ação não pode ser desfeita.</p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                  <button onClick={() => setDeletePropId(null)} style={{ padding: '9px 20px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                  <button onClick={handlePropDelete} disabled={deletingProp} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: deletingProp ? '#f87171' : '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: deletingProp ? 'not-allowed' : 'pointer' }}>
+                    {deletingProp ? 'Excluindo…' : 'Excluir'}
                   </button>
                 </div>
               </div>
-            )}
-
-            {/* Delete property confirm */}
-            {deletePropId && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} onClick={() => setDeletePropId(null)} />
-                <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: '14px', padding: '28px', width: '360px', zIndex: 301, boxShadow: '0 8px 48px rgba(0,0,0,0.18)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>🗑️</div>
-                  <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '16px', color: '#010205', marginBottom: '8px' }}>Excluir imóvel?</div>
-                  <p style={{ fontSize: '13px', color: '#878C91', marginBottom: '24px', lineHeight: 1.6 }}>Esta ação não pode ser desfeita.</p>
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                    <button onClick={() => setDeletePropId(null)} style={{ padding: '9px 20px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-                    <button onClick={handlePropDelete} disabled={deletingProp} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: deletingProp ? '#f87171' : '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: deletingProp ? 'not-allowed' : 'pointer' }}>
-                      {deletingProp ? 'Excluindo…' : 'Excluir'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )
-      })()}
+            </>
+          )}
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════ */}
       {/* NOVA SOLICITAÇÃO DRAWER                                    */}
