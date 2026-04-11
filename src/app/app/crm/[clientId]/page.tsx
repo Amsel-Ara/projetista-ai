@@ -299,11 +299,11 @@ export default function ClientProfilePage() {
 
   // ── API Lookups ──
   const [cpfLookupLoading,  setCpfLookupLoading]  = useState(false)
-  const [cpfLookupError,    setCpfLookupError]    = useState('')
+  const [cpfLookupMsg,      setCpfLookupMsg]      = useState<{ ok: boolean; text: string } | null>(null)
   const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false)
-  const [cnpjLookupError,   setCnpjLookupError]   = useState('')
+  const [cnpjLookupMsg,     setCnpjLookupMsg]     = useState<{ ok: boolean; text: string } | null>(null)
   const [cepLookupLoading,  setCepLookupLoading]  = useState(false)
-  const [cepLookupError,    setCepLookupError]    = useState('')
+  const [cepLookupMsg,      setCepLookupMsg]      = useState<{ ok: boolean; text: string } | null>(null)
 
   // ── Imóvel Rural ──
   const [properties,       setProperties]       = useState<RuralProperty[]>([])
@@ -518,58 +518,74 @@ export default function ClientProfilePage() {
 
   // ── API lookup handlers — call external APIs directly (both have CORS enabled) ──
   async function lookupCPF() {
+    setCpfLookupLoading(true); setCpfLookupMsg(null)
     const digits = pessoaForm.cpf.replace(/\D/g, '')
-    if (digits.length !== 11) { setCpfLookupError('Digite um CPF válido (11 dígitos).'); return }
-    setCpfLookupLoading(true); setCpfLookupError('')
+    if (digits.length !== 11) {
+      setCpfLookupMsg({ ok: false, text: 'CPF incompleto (11 dígitos).' })
+      setCpfLookupLoading(false); return
+    }
     try {
       const res  = await fetch(`https://brasilapi.com.br/api/cpf/v1/${digits}`, { headers: { Accept: 'application/json' } })
       const body = await res.text()
-      // BrasilAPI CPF endpoint currently returns HTML 404 (endpoint removed)
       if (!res.ok || body.trim().startsWith('<')) {
-        setCpfLookupError('Consulta de CPF indisponível — verifique manualmente na Receita Federal (gov.br/receitafederal).')
+        setCpfLookupMsg({ ok: false, text: 'Serviço indisponível — consulte em gov.br/receitafederal.' })
         return
       }
       const data = JSON.parse(body)
       setPessoaForm(p => ({
         ...p,
-        name:      data.nome      ? (p.name || data.nome) : p.name,
+        name:      data.nome ? (p.name || data.nome) : p.name,
         cpfStatus: data.situacao?.descricao ?? data.situacao ?? p.cpfStatus,
       }))
-    } catch { setCpfLookupError('Erro de rede. Tente novamente.') }
-    finally   { setCpfLookupLoading(false) }
+      setCpfLookupMsg({ ok: true, text: '✓ Dados preenchidos' })
+    } catch (err: any) {
+      setCpfLookupMsg({ ok: false, text: 'Erro: ' + (err?.message ?? 'tente novamente.') })
+    } finally {
+      setCpfLookupLoading(false)
+    }
   }
 
   async function lookupCNPJ() {
+    setCnpjLookupLoading(true); setCnpjLookupMsg(null)
     const digits = pessoaForm.cnpj.replace(/\D/g, '')
-    if (digits.length !== 14) { setCnpjLookupError('Digite um CNPJ válido (14 dígitos).'); return }
-    setCnpjLookupLoading(true); setCnpjLookupError('')
+    if (digits.length !== 14) {
+      setCnpjLookupMsg({ ok: false, text: 'CNPJ incompleto (14 dígitos).' })
+      setCnpjLookupLoading(false); return
+    }
     try {
       const res  = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        setCnpjLookupError(err.message ?? `CNPJ não encontrado (${res.status}).`)
+        setCnpjLookupMsg({ ok: false, text: err.message ?? `Não encontrado (${res.status}).` })
         return
       }
       const data = await res.json()
       setPessoaForm(p => ({
         ...p,
-        razaoSocial:      data.razao_social                    ?? p.razaoSocial,
-        cnae:             data.cnae_fiscal?.toString()          ?? p.cnae,
-        naturezaJuridica: data.natureza_juridica               ?? p.naturezaJuridica,
+        razaoSocial:      data.razao_social           ?? p.razaoSocial,
+        cnae:             data.cnae_fiscal?.toString() ?? p.cnae,
+        naturezaJuridica: data.natureza_juridica       ?? p.naturezaJuridica,
       }))
-    } catch { setCnpjLookupError('Erro de rede. Tente novamente.') }
-    finally   { setCnpjLookupLoading(false) }
+      setCnpjLookupMsg({ ok: true, text: '✓ Dados preenchidos' })
+    } catch (err: any) {
+      setCnpjLookupMsg({ ok: false, text: 'Erro: ' + (err?.message ?? 'tente novamente.') })
+    } finally {
+      setCnpjLookupLoading(false)
+    }
   }
 
   async function lookupCEP() {
+    setCepLookupLoading(true); setCepLookupMsg(null)
     const digits = pessoaForm.cep.replace(/\D/g, '')
-    if (digits.length !== 8) { setCepLookupError('Digite um CEP válido (8 dígitos).'); return }
-    setCepLookupLoading(true); setCepLookupError('')
+    if (digits.length !== 8) {
+      setCepLookupMsg({ ok: false, text: 'CEP incompleto (8 dígitos).' })
+      setCepLookupLoading(false); return
+    }
     try {
       const res  = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
-      if (!res.ok) { setCepLookupError('CEP não encontrado.'); return }
+      if (!res.ok) { setCepLookupMsg({ ok: false, text: `CEP não encontrado (${res.status}).` }); return }
       const data = await res.json()
-      if (data.erro) { setCepLookupError('CEP não encontrado.'); return }
+      if (data.erro) { setCepLookupMsg({ ok: false, text: 'CEP não encontrado.' }); return }
       setPessoaForm(p => ({
         ...p,
         logradouro: data.logradouro ?? p.logradouro,
@@ -578,8 +594,12 @@ export default function ClientProfilePage() {
         state:      data.uf         ?? p.state,
         ibgeCode:   data.ibge       ?? p.ibgeCode,
       }))
-    } catch { setCepLookupError('Erro de rede. Tente novamente.') }
-    finally   { setCepLookupLoading(false) }
+      setCepLookupMsg({ ok: true, text: '✓ Endereço preenchido' })
+    } catch (err: any) {
+      setCepLookupMsg({ ok: false, text: 'Erro: ' + (err?.message ?? 'tente novamente.') })
+    } finally {
+      setCepLookupLoading(false)
+    }
   }
 
   function openEditProp(p: RuralProperty) {
@@ -1477,26 +1497,27 @@ export default function ClientProfilePage() {
                       value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
                       placeholder={placeholder} readOnly={readOnly} />
                     {lookup === 'cpf' && (
-                      <button onClick={lookupCPF} disabled={cpfLookupLoading}
+                      <button type="button" onClick={lookupCPF} disabled={cpfLookupLoading}
                         style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cpfLookupLoading ? 0.6 : 1 }}>
                         {cpfLookupLoading ? '…' : 'Buscar →'}
                       </button>
                     )}
                     {lookup === 'cnpj' && (
-                      <button onClick={lookupCNPJ} disabled={cnpjLookupLoading}
+                      <button type="button" onClick={lookupCNPJ} disabled={cnpjLookupLoading}
                         style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cnpjLookupLoading ? 0.6 : 1 }}>
                         {cnpjLookupLoading ? '…' : 'Buscar →'}
                       </button>
                     )}
                   </div>
+                  {lookup === 'cpf'  && cpfLookupMsg  && (
+                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: cpfLookupMsg.ok ? '#16a34a' : '#dc2626' }}>{cpfLookupMsg.text}</div>
+                  )}
+                  {lookup === 'cnpj' && cnpjLookupMsg && (
+                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: cnpjLookupMsg.ok ? '#16a34a' : '#dc2626' }}>{cnpjLookupMsg.text}</div>
+                  )}
                 </div>
               ))}
             </div>
-            {(cpfLookupError || cnpjLookupError) && (
-              <div style={{ marginTop: '12px', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626' }}>
-                {cpfLookupError || cnpjLookupError}
-              </div>
-            )}
           </div>
 
           {/* Endereço */}
@@ -1520,20 +1541,18 @@ export default function ClientProfilePage() {
                       value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
                       placeholder={placeholder} />
                     {lookup && (
-                      <button onClick={lookupCEP} disabled={cepLookupLoading}
+                      <button type="button" onClick={lookupCEP} disabled={cepLookupLoading}
                         style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cepLookupLoading ? 0.6 : 1 }}>
                         {cepLookupLoading ? '…' : 'Buscar →'}
                       </button>
                     )}
                   </div>
+                  {lookup && cepLookupMsg && (
+                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: cepLookupMsg.ok ? '#16a34a' : '#dc2626' }}>{cepLookupMsg.text}</div>
+                  )}
                 </div>
               ))}
             </div>
-            {cepLookupError && (
-              <div style={{ marginTop: '12px', padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', color: '#dc2626' }}>
-                {cepLookupError}
-              </div>
-            )}
           </div>
 
           {/* Contato */}
