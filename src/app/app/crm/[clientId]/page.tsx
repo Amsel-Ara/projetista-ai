@@ -60,6 +60,57 @@ const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 const BANKS  = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
 
+/* ─── Input masks (defined outside component — stable references) ─── */
+function maskCPF(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`
+  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`
+}
+function maskCNPJ(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 14)
+  if (d.length <= 2) return d
+  if (d.length <= 5) return `${d.slice(0,2)}.${d.slice(2)}`
+  if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`
+  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`
+}
+function maskCEP(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 5) return d
+  return `${d.slice(0,5)}-${d.slice(5)}`
+}
+function maskPhone(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 0) return d
+  if (d.length <= 2) return `(${d}`
+  if (d.length <= 7) return `(${d.slice(0,2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
+}
+function maskDate(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 2) return d
+  if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`
+  return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`
+}
+function maskNIRF(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 7) return d
+  return `${d.slice(0,7)}-${d.slice(7)}`
+}
+function applyPessoaMask(key: string, value: string): string {
+  switch (key) {
+    case 'cpf':         return maskCPF(value)
+    case 'cnpj':        return maskCNPJ(value)
+    case 'cep':         return maskCEP(value)
+    case 'whatsapp':    return maskPhone(value)
+    case 'dateOfBirth': return maskDate(value)
+    default:            return value
+  }
+}
+
 type UploadedDoc = {
   id: string
   doc_type: string
@@ -1348,7 +1399,7 @@ export default function ClientProfilePage() {
                 <div key={key}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
                   <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: e.target.value }))}
+                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
                     placeholder={placeholder} readOnly={readOnly} />
                 </div>
               ))}
@@ -1372,7 +1423,7 @@ export default function ClientProfilePage() {
                 <div key={key}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
                   <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: e.target.value }))}
+                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
                     placeholder={placeholder} readOnly={readOnly} />
                 </div>
               ))}
@@ -1390,7 +1441,7 @@ export default function ClientProfilePage() {
                 <div key={key}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
                   <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: e.target.value }))}
+                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
                     placeholder={placeholder} />
                 </div>
               ))}
@@ -1506,7 +1557,7 @@ export default function ClientProfilePage() {
                     <div key={key}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
                       <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                        value={(propForm as any)[key]} onChange={e => setPropForm(p => ({ ...p, [key]: e.target.value }))}
+                        value={(propForm as any)[key]} onChange={e => setPropForm(p => ({ ...p, [key]: key === 'nirf' ? maskNIRF(e.target.value) : e.target.value }))}
                         placeholder={placeholder} readOnly={readOnly} />
                     </div>
                   )
