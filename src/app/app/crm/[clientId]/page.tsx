@@ -160,6 +160,49 @@ const EXPIRY_COLOR: Record<string, string> = {
   none:    '#d1d5db',
 }
 
+/* ─── Cadastro tab types & helpers ──────────────────────────────────────── */
+type CadastroSection = 'identificacao' | 'imoveis' | 'semoventes' | 'bens_moveis' | 'prod_agricola' | 'prod_pecuaria' | 'financeiro'
+
+const CADASTRO_NAV: { id: CadastroSection; label: string; icon: string }[] = [
+  { id: 'identificacao', label: 'Identificação',   icon: '👤' },
+  { id: 'imoveis',       label: 'Imóveis Rurais',  icon: '🏡' },
+  { id: 'semoventes',    label: 'Semoventes',      icon: '🐄' },
+  { id: 'bens_moveis',   label: 'Bens Móveis',     icon: '🚜' },
+  { id: 'prod_agricola', label: 'Prod. Agrícola',  icon: '🌾' },
+  { id: 'prod_pecuaria', label: 'Prod. Pecuária',  icon: '🐖' },
+  { id: 'financeiro',    label: 'Financeiro',      icon: '💰' },
+]
+
+type Completeness = 'complete' | 'partial' | 'empty'
+
+const DOT: Record<Completeness, { symbol: string; color: string }> = {
+  complete: { symbol: '●', color: '#16a34a' },
+  partial:  { symbol: '◐', color: '#d97706' },
+  empty:    { symbol: '○', color: '#d1d5db' },
+}
+
+function sectionCompleteness(
+  section: CadastroSection,
+  form: { name: string; cpf: string; whatsapp: string; email: string },
+  properties: RuralProperty[],
+): Completeness {
+  switch (section) {
+    case 'identificacao': {
+      const filled = [form.name, form.cpf, form.whatsapp, form.email].filter(Boolean)
+      if (filled.length === 4) return 'complete'
+      if (filled.length > 0)  return 'partial'
+      return 'empty'
+    }
+    case 'imoveis': {
+      if (properties.length === 0) return 'empty'
+      const allOk = properties.every(p => p.nome && p.municipio)
+      return allOk ? 'complete' : 'partial'
+    }
+    default:
+      return 'empty'
+  }
+}
+
 /* ─── Component ──────────────────────────────────────────────────────────── */
 export default function ClientProfilePage() {
   const { clientId }  = useParams()
@@ -263,7 +306,8 @@ export default function ClientProfilePage() {
   const [editError,    setEditError]   = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting,     setDeleting]    = useState(false)
-  const [tab,          setTab]         = useState<'overview' | 'docs' | 'data' | 'pessoa' | 'imovel'>('overview')
+  const [tab,          setTab]         = useState<'overview' | 'docs' | 'cadastro'>('overview')
+  const [cadastroSection, setCadastroSection] = useState<CadastroSection>('identificacao')
   const [activeAppId,  setActiveAppId] = useState('')
   const [dragging,     setDragging]    = useState(false)
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
@@ -891,11 +935,9 @@ export default function ClientProfilePage() {
 
       {/* ── Tabs ── */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <TabBtn id="overview" label="Visão Geral" />
-        <TabBtn id="docs"     label="Solicitações" />
-        <TabBtn id="data"     label="Dados da Solicitação" />
-        <TabBtn id="pessoa"   label="Pessoa & Contato" />
-        <TabBtn id="imovel"   label="Imóvel Rural" />
+        <TabBtn id="overview"  label="Visão Geral" />
+        <TabBtn id="docs"      label="Solicitações" />
+        <TabBtn id="cadastro"  label="Cadastro" />
       </div>
 
       {/* ══════════════════════════════════════════════════════════ */}
@@ -1415,65 +1457,42 @@ export default function ClientProfilePage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB 3 — DADOS DA SOLICITAÇÃO                              */}
+      {/* TAB 3 — CADASTRO                                          */}
       {/* ══════════════════════════════════════════════════════════ */}
-      {tab === 'data' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', alignItems: 'start' }}>
+      {tab === 'cadastro' && (
+        <div style={{ display: 'flex', gap: '0', alignItems: 'flex-start' }}>
 
-          {/* Left: manual input */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>Finalidade e Dados Econômicos</div>
-            <div style={{ fontSize: '12px', color: '#878C91', marginBottom: '20px' }}>Preenchido pelo projetista — complementa os dados extraídos dos documentos.</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Finalidade do crédito</div>
-                <textarea rows={3} placeholder="Descreva o que o produtor irá fazer com o crédito..." style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', fontSize: '13px', resize: 'vertical', outline: 'none', fontFamily: 'var(--font-body)', boxSizing: 'border-box', color: 'var(--color-text-primary)' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Cultura principal</div>
-                <select style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', fontSize: '13px', color: 'var(--color-text-primary)', background: '#fff', boxSizing: 'border-box' }}>
-                  <option value="">Selecionar…</option>
-                  {['Soja', 'Milho', 'Cana-de-açúcar', 'Café', 'Algodão', 'Gado de corte', 'Gado leiteiro', 'Outro'].map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              {[
-                { label: 'Área a financiar (ha)', placeholder: '850' },
-                { label: 'Produção estimada (t)', placeholder: '3.200' },
-                { label: 'Renda bruta anual estimada (R$)', placeholder: '1.200.000' },
-                { label: 'Outras dívidas (R$)', placeholder: '0' },
-              ].map(f => (
-                <div key={f.label}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{f.label}</div>
-                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} placeholder={f.placeholder} />
-                </div>
-              ))}
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Garantias oferecidas</div>
-                <textarea rows={2} placeholder="Ex: Penhor agrícola, hipoteca do imóvel..." style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', fontSize: '13px', resize: 'vertical', outline: 'none', fontFamily: 'var(--font-body)', boxSizing: 'border-box', color: 'var(--color-text-primary)' }} />
-              </div>
-              <button className="btn-primary" style={{ alignSelf: 'flex-start' }}>Salvar dados</button>
-            </div>
+          {/* Left sub-nav */}
+          <div style={{ width: '180px', flexShrink: 0, background: '#fff', borderRadius: '14px', padding: '8px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', marginRight: '16px' }}>
+            {CADASTRO_NAV.map(item => {
+              const comp = sectionCompleteness(item.id, pessoaForm, properties)
+              const dot  = DOT[comp]
+              const active = cadastroSection === item.id
+              return (
+                <button key={item.id} type="button" onClick={() => setCadastroSection(item.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                    padding: '9px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    background:   active ? 'var(--brand-orange-bg)' : 'transparent',
+                    borderLeft:   active ? '3px solid var(--brand-orange)' : '3px solid transparent',
+                    color:        active ? 'var(--brand-orange)' : 'var(--color-text-secondary)',
+                    fontWeight:   active ? 700 : 400,
+                    fontSize:     '13px',
+                    textAlign:    'left',
+                    transition:   'all 0.15s',
+                    fontFamily:   'var(--font-body)',
+                  }}>
+                  <span style={{ fontSize: '11px', color: dot.color, flexShrink: 0 }}>{dot.symbol}</span>
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>{item.icon}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                </button>
+              )
+            })}
           </div>
 
-          {/* Right: extracted data verification */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>Dados Extraídos dos Documentos</div>
-            <div style={{ fontSize: '12px', color: '#878C91', marginBottom: '20px' }}>Extraídos automaticamente via leitura de documentos. Verifique e corrija se necessário.</div>
-            <div style={{ textAlign: 'center', padding: '32px 0', color: '#878C91' }}>
-              <div style={{ fontSize: '28px', marginBottom: '10px' }}>📄</div>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#010205', marginBottom: '4px' }}>Nenhum dado extraído ainda</p>
-              <p style={{ fontSize: '12px', lineHeight: 1.6 }}>
-                Envie documentos na aba <strong>Documentos</strong> para que o sistema extraia os campos automaticamente.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB 4 — PESSOA & CONTATO                                  */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === 'pessoa' && (
+          {/* Right content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {cadastroSection === 'identificacao' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* Identificação */}
@@ -1592,12 +1611,9 @@ export default function ClientProfilePage() {
             {pessoaSaved && <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Salvo com sucesso</span>}
           </div>
         </div>
-      )}
+            )}
 
-      {/* ══════════════════════════════════════════════════════════ */}
-      {/* TAB 5 — IMÓVEL RURAL                                      */}
-      {/* ══════════════════════════════════════════════════════════ */}
-      {tab === 'imovel' && (
+            {cadastroSection === 'imoveis' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* Property list */}
@@ -1748,6 +1764,23 @@ export default function ClientProfilePage() {
               </div>
             </>
           )}
+        </div>
+            )}
+
+            {/* Sections 3–7: placeholders */}
+            {(['semoventes', 'bens_moveis', 'prod_agricola', 'prod_pecuaria', 'financeiro'] as CadastroSection[]).includes(cadastroSection) && (
+              <div style={{ background: '#fff', borderRadius: '14px', padding: '40px', textAlign: 'center', color: '#878C91', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '28px', marginBottom: '12px' }}>
+                  {CADASTRO_NAV.find(n => n.id === cadastroSection)?.icon}
+                </div>
+                <p style={{ fontWeight: 700, color: '#010205', marginBottom: '6px' }}>
+                  {CADASTRO_NAV.find(n => n.id === cadastroSection)?.label}
+                </p>
+                <p style={{ fontSize: '12px' }}>Esta seção será implementada em breve.</p>
+              </div>
+            )}
+
+          </div>
         </div>
       )}
 
