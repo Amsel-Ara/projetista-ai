@@ -235,12 +235,26 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
     })
   }, [expandedId])
 
+  // Map species_type enum → human-readable atividade (required NOT NULL by DB)
+  const SPECIES_ATIVIDADE: Record<string, string> = {
+    bovino_corte:  'Bovinocultura-Corte',
+    bovino_leite:  'Bovinocultura-Leite',
+    suino:         'Suinocultura',
+    aves:          'Avicultura',
+    ovino:         'Ovinocultura',
+    caprino:       'Caprinocultura',
+  }
+
   async function handleCreateOrUpdate() {
     if (!prodForm.property_id) { setSaveError('Selecione um imóvel.'); return }
     setSaving(true); setSaveError('')
+    const atividade = (prodForm.species_type && SPECIES_ATIVIDADE[prodForm.species_type])
+      ? SPECIES_ATIVIDADE[prodForm.species_type]
+      : (prodForm.species_type ?? 'Pecuária')
     const payload = {
       organization_id: organizationId,
       client_id: clientId,
+      atividade,
       species_type: prodForm.species_type || null,
       property_id: prodForm.property_id,
       talhao_id: prodForm.talhao_id || null,
