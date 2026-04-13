@@ -6,6 +6,13 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { resolveChecklist, fetchPrograms, BANK_SLUGS, CATEGORY_LABELS, type ChecklistItem, type CreditProgram } from '@/lib/credit-programs'
 import DocumentViewer from './DocumentViewer'
+import IdentificacaoSection from './sections/IdentificacaoSection'
+import ImoveisSection from './sections/ImoveisSection'
+import SemovEntesSection from './sections/SemovEntesSection'
+import BensMoveisSection from './sections/BensMoveisSection'
+import { ProdAgricolaSection } from './sections/ProdAgricolaSection'
+import { ProdPecuariaSection } from './sections/ProdPecuariaSection'
+import FinanceiroSection from './sections/FinanceiroSection'
 
 type ClientData = {
   id: string; name: string; initials: string; whatsapp: string; email: string
@@ -18,13 +25,6 @@ type ClientData = {
   bairro: string; ibgeCode: string; comoConheceu: string
 }
 
-type RuralProperty = {
-  id: string
-  nirf: string; nome: string; municipio: string; uf: string; area_declarada_ha: string
-  car_numero: string; car_status: string; car_area_ha: string
-  ccir: string; ccir_situacao: string; ccir_area_ha: string
-  condicao_produtor: string; atividade_principal: string; caf_dap: string
-}
 type AppData = {
   id: string; program: string; programCode: string; bank: string; status: string; created: string
   amount: number; commission: number; docsComplete: number; docsTotal: number
@@ -41,13 +41,6 @@ const CLIENT_EMPTY: ClientData = {
   bairro: '', ibgeCode: '', comoConheceu: '',
 }
 
-const EMPTY_PROP: Omit<RuralProperty, 'id'> = {
-  nirf: '', nome: '', municipio: '', uf: '', area_declarada_ha: '',
-  car_numero: '', car_status: '', car_area_ha: '',
-  ccir: '', ccir_situacao: '', ccir_area_ha: '',
-  condicao_produtor: '', atividade_principal: '', caf_dap: '',
-}
-
 const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
   'Rascunho':           { color: '#878C91', bg: '#F3F3F3',  cls: 'badge badge-draft' },
   'Docs Pendentes':     { color: '#d97706', bg: '#fffbeb',  cls: 'badge badge-pending' },
@@ -59,57 +52,6 @@ const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
 
 const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 const BANKS  = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
-
-/* ─── Input masks (defined outside component — stable references) ─── */
-function maskCPF(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  if (d.length <= 3) return d
-  if (d.length <= 6) return `${d.slice(0,3)}.${d.slice(3)}`
-  if (d.length <= 9) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6)}`
-  return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`
-}
-function maskCNPJ(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 14)
-  if (d.length <= 2) return d
-  if (d.length <= 5) return `${d.slice(0,2)}.${d.slice(2)}`
-  if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`
-  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`
-  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`
-}
-function maskCEP(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 8)
-  if (d.length <= 5) return d
-  return `${d.slice(0,5)}-${d.slice(5)}`
-}
-function maskPhone(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  if (d.length <= 0) return d
-  if (d.length <= 2) return `(${d}`
-  if (d.length <= 7) return `(${d.slice(0,2)}) ${d.slice(2)}`
-  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`
-  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
-}
-function maskDate(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 8)
-  if (d.length <= 2) return d
-  if (d.length <= 4) return `${d.slice(0,2)}/${d.slice(2)}`
-  return `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`
-}
-function maskNIRF(v: string) {
-  const d = v.replace(/\D/g, '').slice(0, 8)
-  if (d.length <= 7) return d
-  return `${d.slice(0,7)}-${d.slice(7)}`
-}
-function applyPessoaMask(key: string, value: string): string {
-  switch (key) {
-    case 'cpf':         return maskCPF(value)
-    case 'cnpj':        return maskCNPJ(value)
-    case 'cep':         return maskCEP(value)
-    case 'whatsapp':    return maskPhone(value)
-    case 'dateOfBirth': return maskDate(value)
-    default:            return value
-  }
-}
 
 type UploadedDoc = {
   id: string
@@ -183,21 +125,18 @@ const DOT: Record<Completeness, { symbol: string; color: string }> = {
 
 function sectionCompleteness(
   section: CadastroSection,
-  form: { name: string; cpf: string; whatsapp: string; email: string },
-  properties: RuralProperty[],
+  client: ClientData,
+  propCount: number,
 ): Completeness {
   switch (section) {
     case 'identificacao': {
-      const filled = [form.name, form.cpf, form.whatsapp, form.email].filter(Boolean)
+      const filled = [client.name, client.cpf, client.whatsapp, client.email].filter(Boolean)
       if (filled.length === 4) return 'complete'
       if (filled.length > 0)  return 'partial'
       return 'empty'
     }
-    case 'imoveis': {
-      if (properties.length === 0) return 'empty'
-      const allOk = properties.every(p => p.nome && p.municipio)
-      return allOk ? 'complete' : 'partial'
-    }
+    case 'imoveis':
+      return propCount > 0 ? 'partial' : 'empty'
     default:
       return 'empty'
   }
@@ -263,18 +202,6 @@ export default function ClientProfilePage() {
           ibgeCode:         c.ibge_code         ?? '',
           comoConheceu:     c.como_conheceu     ?? '',
         })
-        setPessoaForm({
-          name: c.name ?? '', cpf: c.cpf ?? '', cnpj: c.cnpj ?? '',
-          razaoSocial: c.razao_social ?? '', cnae: c.cnae ?? '',
-          naturezaJuridica: c.natureza_juridica ?? '',
-          dateOfBirth: c.date_of_birth ?? '', cpfStatus: c.cpf_status ?? '',
-          cep: c.cep ?? '', logradouro: c.logradouro ?? '',
-          numero: c.numero ?? '', complemento: c.complemento ?? '',
-          bairro: c.bairro ?? '', city: c.city ?? '', state: c.state ?? '',
-          ibgeCode: c.ibge_code ?? '',
-          whatsapp: c.whatsapp ?? '', email: c.email ?? '',
-          comoConheceu: c.como_conheceu ?? '',
-        })
       }
       if (appsRes.data) {
         setApplications(appsRes.data.map((a: any) => ({
@@ -329,36 +256,8 @@ export default function ClientProfilePage() {
   const [deleteSolId,   setDeleteSolId]   = useState<string | null>(null)
   const [deletingSol,   setDeletingSol]   = useState(false)
 
-  // ── Pessoa & Contato ──
-  const [pessoaForm,    setPessoaForm]    = useState({
-    name: '', cpf: '', cnpj: '', razaoSocial: '', cnae: '', naturezaJuridica: '',
-    dateOfBirth: '', cpfStatus: '',
-    cep: '', logradouro: '', numero: '', complemento: '', bairro: '',
-    city: '', state: '', ibgeCode: '',
-    whatsapp: '', email: '', comoConheceu: '',
-  })
-  const [pessoaSaving,  setPessoaSaving]  = useState(false)
-  const [pessoaError,   setPessoaError]   = useState('')
-  const [pessoaSaved,   setPessoaSaved]   = useState(false)
-
-  // ── API Lookups ──
-  const [cpfLookupLoading,  setCpfLookupLoading]  = useState(false)
-  const [cpfLookupMsg,      setCpfLookupMsg]      = useState<{ ok: boolean; text: string } | null>(null)
-  const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false)
-  const [cnpjLookupMsg,     setCnpjLookupMsg]     = useState<{ ok: boolean; text: string } | null>(null)
-  const [cepLookupLoading,  setCepLookupLoading]  = useState(false)
-  const [cepLookupMsg,      setCepLookupMsg]      = useState<{ ok: boolean; text: string } | null>(null)
-
-  // ── Imóvel Rural ──
-  const [properties,       setProperties]       = useState<RuralProperty[]>([])
-  const [propsLoading,     setPropsLoading]     = useState(false)
-  const [propFormOpen,     setPropFormOpen]     = useState(false)
-  const [editPropId,       setEditPropId]       = useState<string | null>(null)
-  const [propForm,         setPropForm]         = useState<Omit<RuralProperty, 'id'>>(EMPTY_PROP)
-  const [propSaving,       setPropSaving]       = useState(false)
-  const [propError,        setPropError]        = useState('')
-  const [deletePropId,     setDeletePropId]     = useState<string | null>(null)
-  const [deletingProp,     setDeletingProp]     = useState(false)
+  // ── Property count for completeness indicator ──
+  const [propCount, setPropCount] = useState(0)
 
   // Read ?tab=docs from URL (after "Salvar e fazer upload")
   useEffect(() => {
@@ -457,199 +356,6 @@ export default function ClientProfilePage() {
     return () => { supabase.removeChannel(channel) }
   }, [activeAppId])
 
-  // Load rural properties when clientId changes
-  useEffect(() => {
-    if (!clientId) return
-    setPropsLoading(true)
-    supabase
-      .from('rural_properties')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at')
-      .then(({ data }) => {
-        if (data) setProperties(data.map((p: any) => ({
-          id: p.id,
-          nirf: p.nirf ?? '', nome: p.nome ?? '',
-          municipio: p.municipio ?? '', uf: p.uf ?? '',
-          area_declarada_ha: p.area_declarada_ha?.toString() ?? '',
-          car_numero: p.car_numero ?? '', car_status: p.car_status ?? '',
-          car_area_ha: p.car_area_ha?.toString() ?? '',
-          ccir: p.ccir ?? '', ccir_situacao: p.ccir_situacao ?? '',
-          ccir_area_ha: p.ccir_area_ha?.toString() ?? '',
-          condicao_produtor: p.condicao_produtor ?? '',
-          atividade_principal: p.atividade_principal ?? '',
-          caf_dap: p.caf_dap ?? '',
-        })))
-        setPropsLoading(false)
-      })
-  }, [clientId])
-
-  // Save Pessoa & Contato
-  async function handlePessoaSave() {
-    setPessoaSaving(true); setPessoaError(''); setPessoaSaved(false)
-    const { error } = await supabase.from('clients').update({
-      name:               pessoaForm.name,
-      cpf:                pessoaForm.cpf || null,
-      cnpj:               pessoaForm.cnpj || null,
-      razao_social:       pessoaForm.razaoSocial || null,
-      cnae:               pessoaForm.cnae || null,
-      natureza_juridica:  pessoaForm.naturezaJuridica || null,
-      date_of_birth:      pessoaForm.dateOfBirth || null,
-      cpf_status:         pessoaForm.cpfStatus || null,
-      cep:                pessoaForm.cep || null,
-      logradouro:         pessoaForm.logradouro || null,
-      numero:             pessoaForm.numero || null,
-      complemento:        pessoaForm.complemento || null,
-      bairro:             pessoaForm.bairro || null,
-      city:               pessoaForm.city || null,
-      state:              pessoaForm.state || null,
-      ibge_code:          pessoaForm.ibgeCode || null,
-      whatsapp:           pessoaForm.whatsapp || null,
-      email:              pessoaForm.email || null,
-      como_conheceu:      pessoaForm.comoConheceu || null,
-    }).eq('id', clientId as string)
-    if (error) { setPessoaError('Erro ao salvar. Tente novamente.'); setPessoaSaving(false); return }
-    // Refresh the name in the header
-    const parts = pessoaForm.name.trim().split(/\s+/)
-    const initials = parts.length >= 2
-      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-      : pessoaForm.name.slice(0, 2).toUpperCase()
-    setClientData(prev => ({ ...prev, name: pessoaForm.name, initials, whatsapp: pessoaForm.whatsapp, email: pessoaForm.email, city: pessoaForm.city, state: pessoaForm.state, cpf: pessoaForm.cpf }))
-    setPessoaSaving(false); setPessoaSaved(true)
-    setTimeout(() => setPessoaSaved(false), 3000)
-  }
-
-  // Save / upsert a rural property
-  async function handlePropSave() {
-    setPropSaving(true); setPropError('')
-    const payload = {
-      organization_id:     ORG_ID,
-      client_id:           clientId as string,
-      nirf:                propForm.nirf || null,
-      nome:                propForm.nome || null,
-      municipio:           propForm.municipio || null,
-      uf:                  propForm.uf || null,
-      area_declarada_ha:   propForm.area_declarada_ha ? parseFloat(propForm.area_declarada_ha) : null,
-      car_numero:          propForm.car_numero || null,
-      car_status:          propForm.car_status || null,
-      car_area_ha:         propForm.car_area_ha ? parseFloat(propForm.car_area_ha) : null,
-      ccir:                propForm.ccir || null,
-      ccir_situacao:       propForm.ccir_situacao || null,
-      ccir_area_ha:        propForm.ccir_area_ha ? parseFloat(propForm.ccir_area_ha) : null,
-      condicao_produtor:   propForm.condicao_produtor || null,
-      atividade_principal: propForm.atividade_principal || null,
-      caf_dap:             propForm.caf_dap || null,
-    }
-    if (editPropId) {
-      const { error } = await supabase.from('rural_properties').update(payload).eq('id', editPropId)
-      if (error) { setPropError(error.message); setPropSaving(false); return }
-      setProperties(prev => prev.map(p => p.id === editPropId ? { ...propForm, id: editPropId } : p))
-    } else {
-      const { data, error } = await supabase.from('rural_properties').insert(payload).select().single()
-      if (error) { setPropError(error.message); setPropSaving(false); return }
-      setProperties(prev => [...prev, { ...propForm, id: data.id }])
-    }
-    setPropSaving(false); setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP)
-  }
-
-  async function handlePropDelete() {
-    if (!deletePropId) return
-    setDeletingProp(true)
-    await supabase.from('rural_properties').delete().eq('id', deletePropId)
-    setProperties(prev => prev.filter(p => p.id !== deletePropId))
-    setDeletePropId(null); setDeletingProp(false)
-  }
-
-  // ── API lookup handlers — call external APIs directly (both have CORS enabled) ──
-  async function lookupCPF() {
-    setCpfLookupLoading(true); setCpfLookupMsg(null)
-    const digits = pessoaForm.cpf.replace(/\D/g, '')
-    if (digits.length !== 11) {
-      setCpfLookupMsg({ ok: false, text: 'CPF incompleto (11 dígitos).' })
-      setCpfLookupLoading(false); return
-    }
-    try {
-      const res  = await fetch(`https://brasilapi.com.br/api/cpf/v1/${digits}`, { headers: { Accept: 'application/json' } })
-      const body = await res.text()
-      if (!res.ok || body.trim().startsWith('<')) {
-        setCpfLookupMsg({ ok: false, text: 'Serviço indisponível — consulte em gov.br/receitafederal.' })
-        return
-      }
-      const data = JSON.parse(body)
-      setPessoaForm(p => ({
-        ...p,
-        name:      data.nome ? (p.name || data.nome) : p.name,
-        cpfStatus: data.situacao?.descricao ?? data.situacao ?? p.cpfStatus,
-      }))
-      setCpfLookupMsg({ ok: true, text: '✓ Dados preenchidos' })
-    } catch (err: any) {
-      setCpfLookupMsg({ ok: false, text: 'Erro: ' + (err?.message ?? 'tente novamente.') })
-    } finally {
-      setCpfLookupLoading(false)
-    }
-  }
-
-  async function lookupCNPJ() {
-    setCnpjLookupLoading(true); setCnpjLookupMsg(null)
-    const digits = pessoaForm.cnpj.replace(/\D/g, '')
-    if (digits.length !== 14) {
-      setCnpjLookupMsg({ ok: false, text: 'CNPJ incompleto (14 dígitos).' })
-      setCnpjLookupLoading(false); return
-    }
-    try {
-      const res  = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`)
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        setCnpjLookupMsg({ ok: false, text: err.message ?? `Não encontrado (${res.status}).` })
-        return
-      }
-      const data = await res.json()
-      setPessoaForm(p => ({
-        ...p,
-        razaoSocial:      data.razao_social           ?? p.razaoSocial,
-        cnae:             data.cnae_fiscal?.toString() ?? p.cnae,
-        naturezaJuridica: data.natureza_juridica       ?? p.naturezaJuridica,
-      }))
-      setCnpjLookupMsg({ ok: true, text: '✓ Dados preenchidos' })
-    } catch (err: any) {
-      setCnpjLookupMsg({ ok: false, text: 'Erro: ' + (err?.message ?? 'tente novamente.') })
-    } finally {
-      setCnpjLookupLoading(false)
-    }
-  }
-
-  async function lookupCEP() {
-    setCepLookupLoading(true); setCepLookupMsg(null)
-    const digits = pessoaForm.cep.replace(/\D/g, '')
-    if (digits.length !== 8) {
-      setCepLookupMsg({ ok: false, text: 'CEP incompleto (8 dígitos).' })
-      setCepLookupLoading(false); return
-    }
-    try {
-      const res  = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
-      if (!res.ok) { setCepLookupMsg({ ok: false, text: `CEP não encontrado (${res.status}).` }); return }
-      const data = await res.json()
-      if (data.erro) { setCepLookupMsg({ ok: false, text: 'CEP não encontrado.' }); return }
-      setPessoaForm(p => ({
-        ...p,
-        logradouro: data.logradouro ?? p.logradouro,
-        bairro:     data.bairro     ?? p.bairro,
-        city:       data.localidade ?? p.city,
-        state:      data.uf         ?? p.state,
-        ibgeCode:   data.ibge       ?? p.ibgeCode,
-      }))
-      setCepLookupMsg({ ok: true, text: '✓ Endereço preenchido' })
-    } catch (err: any) {
-      setCepLookupMsg({ ok: false, text: 'Erro: ' + (err?.message ?? 'tente novamente.') })
-    } finally {
-      setCepLookupLoading(false)
-    }
-  }
-
-  function openEditProp(p: RuralProperty) {
-    setPropForm({ nirf: p.nirf, nome: p.nome, municipio: p.municipio, uf: p.uf, area_declarada_ha: p.area_declarada_ha, car_numero: p.car_numero, car_status: p.car_status, car_area_ha: p.car_area_ha, ccir: p.ccir, ccir_situacao: p.ccir_situacao, ccir_area_ha: p.ccir_area_ha, condicao_produtor: p.condicao_produtor, atividade_principal: p.atividade_principal, caf_dap: p.caf_dap })
-    setEditPropId(p.id); setPropFormOpen(true); setPropError('')
-  }
 
   // Derived: lookup of uploaded docs by doc_type
   const docsByKey: Record<string, UploadedDoc[]> = {}
@@ -1460,327 +1166,82 @@ export default function ClientProfilePage() {
       {/* TAB 3 — CADASTRO                                          */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === 'cadastro' && (
-        <div style={{ display: 'flex', gap: '0', alignItems: 'flex-start' }}>
-
-          {/* Left sub-nav */}
-          <div style={{ width: '180px', flexShrink: 0, background: '#fff', borderRadius: '14px', padding: '8px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', marginRight: '16px' }}>
-            {CADASTRO_NAV.map(item => {
-              const comp = sectionCompleteness(item.id, pessoaForm, properties)
-              const dot  = DOT[comp]
-              const active = cadastroSection === item.id
+        <div>
+          {/* Horizontal cadastro section nav */}
+          <div style={{
+            display: 'flex',
+            overflowX: 'auto',
+            borderBottom: '1px solid var(--color-border)',
+            marginBottom: '24px',
+            scrollbarWidth: 'none' as const,
+          }}>
+            {CADASTRO_NAV.map(({ id, label }) => {
+              const active = cadastroSection === id
+              const comp = sectionCompleteness(id, clientData, propCount)
               return (
-                <button key={item.id} type="button" onClick={() => setCadastroSection(item.id)}
+                <button
+                  key={id}
+                  onClick={() => setCadastroSection(id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-                    padding: '9px 10px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                    background:   active ? 'var(--brand-orange-bg)' : 'transparent',
-                    borderLeft:   active ? '3px solid var(--brand-orange)' : '3px solid transparent',
-                    color:        active ? 'var(--brand-orange)' : 'var(--color-text-secondary)',
-                    fontWeight:   active ? 700 : 400,
-                    fontSize:     '13px',
-                    textAlign:    'left',
-                    transition:   'all 0.15s',
-                    fontFamily:   'var(--font-body)',
-                  }}>
-                  <span style={{ fontSize: '11px', color: dot.color, flexShrink: 0 }}>{dot.symbol}</span>
-                  <span style={{ fontSize: '14px', flexShrink: 0 }}>{item.icon}</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                    flexShrink: 0,
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderBottom: active ? '2px solid var(--brand-orange)' : '2px solid transparent',
+                    background: 'none',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: active ? 700 : 500,
+                    color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap' as const,
+                    transition: 'color 0.15s, border-color 0.15s',
+                  }}
+                >
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: DOT[comp].color,
+                    flexShrink: 0,
+                  }} />
+                  {label}
                 </button>
               )
             })}
           </div>
 
-          {/* Right content */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {cadastroSection === 'identificacao' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-          {/* Identificação */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Identificação</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {([
-                { key: 'cpf',              label: 'CPF',               placeholder: '000.000.000-00', lookup: 'cpf' },
-                { key: 'name',             label: 'Nome completo',     placeholder: 'Nome completo' },
-                { key: 'dateOfBirth',      label: 'Data de nascimento',placeholder: 'DD/MM/AAAA' },
-                { key: 'cpfStatus',        label: 'Status CPF',        placeholder: '—', readOnly: true },
-                { key: 'cnpj',             label: 'CNPJ (se PJ)',      placeholder: '00.000.000/0001-00', lookup: 'cnpj' },
-                { key: 'razaoSocial',      label: 'Razão social',      placeholder: 'Preenchido via CNPJ', readOnly: true },
-                { key: 'cnae',             label: 'CNAE principal',    placeholder: '—', readOnly: true },
-                { key: 'naturezaJuridica', label: 'Natureza jurídica', placeholder: '—', readOnly: true },
-              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; readOnly?: boolean; lookup?: string }[]).map(({ key, label, placeholder, readOnly, lookup }) => (
-                <div key={key}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input className="input-field" style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                      value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
-                      placeholder={placeholder} readOnly={readOnly} />
-                    {lookup === 'cpf' && (
-                      <button type="button" onClick={lookupCPF} disabled={cpfLookupLoading}
-                        style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cpfLookupLoading ? 0.6 : 1 }}>
-                        {cpfLookupLoading ? '…' : 'Buscar →'}
-                      </button>
-                    )}
-                    {lookup === 'cnpj' && (
-                      <button type="button" onClick={lookupCNPJ} disabled={cnpjLookupLoading}
-                        style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cnpjLookupLoading ? 0.6 : 1 }}>
-                        {cnpjLookupLoading ? '…' : 'Buscar →'}
-                      </button>
-                    )}
-                  </div>
-                  {lookup === 'cpf'  && cpfLookupMsg  && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: cpfLookupMsg.ok ? '#16a34a' : '#dc2626' }}>{cpfLookupMsg.text}</div>
-                  )}
-                  {lookup === 'cnpj' && cnpjLookupMsg && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: cnpjLookupMsg.ok ? '#16a34a' : '#dc2626' }}>{cnpjLookupMsg.text}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Endereço */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Endereço</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {([
-                { key: 'cep',        label: 'CEP',         placeholder: '00000-000', lookup: true },
-                { key: 'logradouro', label: 'Logradouro',  placeholder: 'Preenchido via CEP' },
-                { key: 'numero',     label: 'Número',      placeholder: '123' },
-                { key: 'complemento',label: 'Complemento', placeholder: 'Apto, sala…' },
-                { key: 'bairro',     label: 'Bairro',      placeholder: '—' },
-                { key: 'city',       label: 'Município',   placeholder: '—' },
-                { key: 'state',      label: 'UF',          placeholder: '—' },
-                { key: 'ibgeCode',   label: 'Código IBGE', placeholder: '—' },
-              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string; lookup?: boolean }[]).map(({ key, label, placeholder, lookup }) => (
-                <div key={key}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <input className="input-field" style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
-                      value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
-                      placeholder={placeholder} />
-                    {lookup && (
-                      <button type="button" onClick={lookupCEP} disabled={cepLookupLoading}
-                        style={{ padding: '0 12px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', color: 'var(--brand-orange)', whiteSpace: 'nowrap', opacity: cepLookupLoading ? 0.6 : 1 }}>
-                        {cepLookupLoading ? '…' : 'Buscar →'}
-                      </button>
-                    )}
-                  </div>
-                  {lookup && cepLookupMsg && (
-                    <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 600, color: cepLookupMsg.ok ? '#16a34a' : '#dc2626' }}>{cepLookupMsg.text}</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Contato */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>Contato</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {([
-                { key: 'whatsapp', label: 'WhatsApp / Celular', placeholder: '(00) 00000-0000' },
-                { key: 'email',    label: 'E-mail',             placeholder: 'produtor@email.com' },
-              ] as { key: keyof typeof pessoaForm; label: string; placeholder: string }[]).map(({ key, label, placeholder }) => (
-                <div key={key}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={pessoaForm[key]} onChange={e => setPessoaForm(p => ({ ...p, [key]: applyPessoaMask(key, e.target.value) }))}
-                    placeholder={placeholder} />
-                </div>
-              ))}
-              <div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Como conheceu?</div>
-                <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                  value={pessoaForm.comoConheceu} onChange={e => setPessoaForm(p => ({ ...p, comoConheceu: e.target.value }))}>
-                  <option value="">Selecionar…</option>
-                  {['Indicação', 'Sindicato / Cooperativa', 'Redes sociais', 'Outros'].map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Save bar */}
-          {pessoaError && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626' }}>{pessoaError}</div>
+          {/* Section content */}
+          {cadastroSection === 'identificacao' && (
+            <IdentificacaoSection
+              clientId={clientId as string}
+              organizationId={ORG_ID}
+              onClientUpdate={(patch) => setClientData(prev => ({ ...prev, ...(patch as Partial<ClientData>) }))}
+            />
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={handlePessoaSave} disabled={pessoaSaving} className="btn-primary" style={{ opacity: pessoaSaving ? 0.7 : 1 }}>
-              {pessoaSaving ? 'Salvando…' : 'Salvar dados'}
-            </button>
-            {pessoaSaved && <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Salvo com sucesso</span>}
-          </div>
-        </div>
-            )}
-
-            {cadastroSection === 'imoveis' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-          {/* Property list */}
-          <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205' }}>
-                Imóveis Rurais
-                {properties.length > 0 && (
-                  <span style={{ marginLeft: '8px', background: '#FDF0EB', color: 'var(--brand-orange)', borderRadius: '10px', padding: '2px 8px', fontSize: '11px', fontWeight: 700 }}>
-                    {properties.length}
-                  </span>
-                )}
-              </div>
-              <button onClick={() => { setPropForm(EMPTY_PROP); setEditPropId(null); setPropError(''); setPropFormOpen(true) }}
-                style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: 'var(--brand-orange)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-                + Adicionar Imóvel
-              </button>
-            </div>
-            {propsLoading ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
-            ) : properties.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: '#878C91' }}>
-                <div style={{ fontSize: '28px', marginBottom: '10px' }}>🌾</div>
-                <p style={{ fontSize: '13px', fontWeight: 600, color: '#010205', marginBottom: '4px' }}>Nenhum imóvel cadastrado</p>
-                <p style={{ fontSize: '12px', lineHeight: 1.6 }}>Adicione os dados do imóvel rural do produtor.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {properties.map(p => (
-                  <div key={p.id} style={{ border: '1.5px solid var(--color-border)', borderRadius: '10px', padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>{p.nome || '(sem nome)'}</div>
-                        <div style={{ fontSize: '12px', color: '#878C91' }}>
-                          {[p.municipio, p.uf].filter(Boolean).join(' — ')}
-                          {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
-                          {p.nirf && ` · NIRF: ${p.nirf}`}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#878C91', marginTop: '2px' }}>
-                          {p.condicao_produtor && <span style={{ marginRight: '10px' }}>{p.condicao_produtor}</span>}
-                          {p.atividade_principal && <span>{p.atividade_principal}</span>}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                        <button onClick={() => openEditProp(p)} style={{ padding: '5px 12px', border: '1.5px solid var(--color-border)', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>Editar</button>
-                        <button onClick={() => setDeletePropId(p.id)} style={{ padding: '5px 12px', border: '1.5px solid #fecaca', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}>Excluir</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Add / Edit form */}
-          {propFormOpen && (
-            <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid var(--brand-orange)' }}>
-              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>
-                {editPropId ? 'Editar Imóvel' : 'Novo Imóvel Rural'}
-              </div>
-
-              {/* Dados do Imóvel */}
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Dados do Imóvel</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                {([
-                  { key: 'nirf',              label: 'NIRF',               placeholder: '0000000-0' },
-                  { key: 'nome',              label: 'Nome da propriedade', placeholder: 'Fazenda São João' },
-                  { key: 'municipio',         label: 'Município (imóvel)',  placeholder: '—',               readOnly: true },
-                  { key: 'uf',                label: 'UF',                  placeholder: '—',               readOnly: true },
-                  { key: 'area_declarada_ha', label: 'Área declarada (ha)', placeholder: '—',               readOnly: true },
-                  { key: '_spacer1' },
-                  { key: 'car_numero',        label: 'CAR número',          placeholder: 'SP-XXXXXXX-XXXX…' },
-                  { key: 'car_status',        label: 'Status CAR',          placeholder: '—',               readOnly: true },
-                  { key: 'car_area_ha',       label: 'Área total CAR (ha)', placeholder: '—',               readOnly: true },
-                  { key: '_spacer2' },
-                  { key: 'ccir',              label: 'CCIR (código SNCR)',  placeholder: 'Código SNCR…' },
-                  { key: 'ccir_situacao',     label: 'Situação CCIR',       placeholder: '—',               readOnly: true },
-                  { key: 'ccir_area_ha',      label: 'Área SNCR (ha)',      placeholder: '—',               readOnly: true },
-                  { key: '_spacer3' },
-                ] as { key: string; label?: string; placeholder?: string; readOnly?: boolean }[]).map(({ key, label, placeholder, readOnly }) =>
-                  key.startsWith('_') ? <div key={key} /> : (
-                    <div key={key}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                      <input className="input-field" style={{ width: '100%', boxSizing: 'border-box', background: readOnly ? 'var(--color-surface-2)' : '#fff' }}
-                        value={(propForm as any)[key]} onChange={e => setPropForm(p => ({ ...p, [key]: key === 'nirf' ? maskNIRF(e.target.value) : e.target.value }))}
-                        placeholder={placeholder} readOnly={readOnly} />
-                    </div>
-                  )
-                )}
-              </div>
-
-              {/* Situação Fundiária */}
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '14px' }}>Situação Fundiária</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Condição do produtor</div>
-                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={propForm.condicao_produtor} onChange={e => setPropForm(p => ({ ...p, condicao_produtor: e.target.value }))}>
-                    <option value="">Selecionar…</option>
-                    {['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Atividade principal</div>
-                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={propForm.atividade_principal} onChange={e => setPropForm(p => ({ ...p, atividade_principal: e.target.value }))}>
-                    <option value="">Selecionar…</option>
-                    {['Agricultura — lavoura temporária', 'Agricultura — lavoura permanente', 'Pecuária bovina', 'Suinocultura', 'Avicultura', 'Aquicultura', 'Silvicultura / SAF'].map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>CAF / DAP</div>
-                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={propForm.caf_dap} onChange={e => setPropForm(p => ({ ...p, caf_dap: e.target.value }))}
-                    placeholder="Número CAF…" />
-                </div>
-              </div>
-
-              {propError && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>
-              )}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={handlePropSave} disabled={propSaving} className="btn-primary" style={{ opacity: propSaving ? 0.7 : 1 }}>
-                  {propSaving ? 'Salvando…' : editPropId ? 'Salvar alterações' : 'Adicionar imóvel'}
-                </button>
-                <button onClick={() => { setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP) }}
-                  style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: 'var(--color-text-primary)' }}>
-                  Cancelar
-                </button>
-              </div>
-            </div>
+          {cadastroSection === 'imoveis' && (
+            <ImoveisSection
+              clientId={clientId as string}
+              organizationId={ORG_ID}
+              onPropertyCountChange={setPropCount}
+            />
           )}
-
-          {/* Delete property confirm */}
-          {deletePropId && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} onClick={() => setDeletePropId(null)} />
-              <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: '14px', padding: '28px', width: '360px', zIndex: 301, boxShadow: '0 8px 48px rgba(0,0,0,0.18)', textAlign: 'center' }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🗑️</div>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '16px', color: '#010205', marginBottom: '8px' }}>Excluir imóvel?</div>
-                <p style={{ fontSize: '13px', color: '#878C91', marginBottom: '24px', lineHeight: 1.6 }}>Esta ação não pode ser desfeita.</p>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                  <button onClick={() => setDeletePropId(null)} style={{ padding: '9px 20px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-                  <button onClick={handlePropDelete} disabled={deletingProp} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: deletingProp ? '#f87171' : '#dc2626', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: deletingProp ? 'not-allowed' : 'pointer' }}>
-                    {deletingProp ? 'Excluindo…' : 'Excluir'}
-                  </button>
-                </div>
-              </div>
-            </>
+          {cadastroSection === 'semoventes' && (
+            <SemovEntesSection clientId={clientId as string} organizationId={ORG_ID} />
           )}
-        </div>
-            )}
-
-            {/* Sections 3–7: placeholders */}
-            {(['semoventes', 'bens_moveis', 'prod_agricola', 'prod_pecuaria', 'financeiro'] as CadastroSection[]).includes(cadastroSection) && (
-              <div style={{ background: '#fff', borderRadius: '14px', padding: '40px', textAlign: 'center', color: '#878C91', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '28px', marginBottom: '12px' }}>
-                  {CADASTRO_NAV.find(n => n.id === cadastroSection)?.icon}
-                </div>
-                <p style={{ fontWeight: 700, color: '#010205', marginBottom: '6px' }}>
-                  {CADASTRO_NAV.find(n => n.id === cadastroSection)?.label}
-                </p>
-                <p style={{ fontSize: '12px' }}>Esta seção será implementada em breve.</p>
-              </div>
-            )}
-
-          </div>
+          {cadastroSection === 'bens_moveis' && (
+            <BensMoveisSection clientId={clientId as string} organizationId={ORG_ID} />
+          )}
+          {cadastroSection === 'prod_agricola' && (
+            <ProdAgricolaSection clientId={clientId as string} organizationId={ORG_ID} />
+          )}
+          {cadastroSection === 'prod_pecuaria' && (
+            <ProdPecuariaSection clientId={clientId as string} organizationId={ORG_ID} />
+          )}
+          {cadastroSection === 'financeiro' && (
+            <FinanceiroSection clientId={clientId as string} organizationId={ORG_ID} />
+          )}
         </div>
       )}
 
