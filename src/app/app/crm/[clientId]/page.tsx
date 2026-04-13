@@ -50,7 +50,6 @@ const STATUS_CFG: Record<string, { color: string; bg: string; cls: string }> = {
   'Aprovado':           { color: '#16a34a', bg: '#f0fdf4',  cls: 'badge badge-approved' },
 }
 
-const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
 const BANKS  = ['Banco do Brasil', 'Bradesco', 'Sicoob', 'Cresol', 'BNB']
 
 type UploadedDoc = {
@@ -153,12 +152,18 @@ export default function ClientProfilePage() {
   const [applications, setApplications] = useState<AppData[]>([])
   const [dataLoading,  setDataLoading] = useState(true)
 
-  // Fetch current user name for notes
+  // Fetch current user name + real organization_id from profile
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       const user = data.user
       if (!user) return
       setCurrentUser(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário')
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
+      if (profile?.organization_id) setOrgId(profile.organization_id)
     })
   }, [])
 
@@ -226,6 +231,7 @@ export default function ClientProfilePage() {
   // Use loaded applications or empty array for derived state
   const APPLICATIONS = applications
 
+  const [orgId,        setOrgId]        = useState('')
   const [currentUser,  setCurrentUser]  = useState('')
   const [editOpen,     setEditOpen]    = useState(false)
   const [editForm,     setEditForm]    = useState({ name: '', whatsapp: '', email: '', cpf: '', city: '', state: '', farmName: '', farmAddress: '' })
@@ -507,7 +513,7 @@ export default function ClientProfilePage() {
     const { data, error } = await supabase
       .from('applications')
       .insert({
-        organization_id: ORG_ID,
+        organization_id: orgId,
         client_id:       clientId as string,
         loan_type:       displayName,
         program_code:    newSolForm.programCode,
@@ -1216,31 +1222,31 @@ export default function ClientProfilePage() {
           {cadastroSection === 'identificacao' && (
             <IdentificacaoSection
               clientId={clientId as string}
-              organizationId={ORG_ID}
+              organizationId={orgId}
               onClientUpdate={(patch) => setClientData(prev => ({ ...prev, ...(patch as Partial<ClientData>) }))}
             />
           )}
           {cadastroSection === 'imoveis' && (
             <ImoveisSection
               clientId={clientId as string}
-              organizationId={ORG_ID}
+              organizationId={orgId}
               onPropertyCountChange={setPropCount}
             />
           )}
           {cadastroSection === 'semoventes' && (
-            <SemovEntesSection clientId={clientId as string} organizationId={ORG_ID} />
+            <SemovEntesSection clientId={clientId as string} organizationId={orgId} />
           )}
           {cadastroSection === 'bens_moveis' && (
-            <BensMoveisSection clientId={clientId as string} organizationId={ORG_ID} />
+            <BensMoveisSection clientId={clientId as string} organizationId={orgId} />
           )}
           {cadastroSection === 'prod_agricola' && (
-            <ProdAgricolaSection clientId={clientId as string} organizationId={ORG_ID} />
+            <ProdAgricolaSection clientId={clientId as string} organizationId={orgId} />
           )}
           {cadastroSection === 'prod_pecuaria' && (
-            <ProdPecuariaSection clientId={clientId as string} organizationId={ORG_ID} />
+            <ProdPecuariaSection clientId={clientId as string} organizationId={orgId} />
           )}
           {cadastroSection === 'financeiro' && (
-            <FinanceiroSection clientId={clientId as string} organizationId={ORG_ID} />
+            <FinanceiroSection clientId={clientId as string} organizationId={orgId} />
           )}
         </div>
       )}

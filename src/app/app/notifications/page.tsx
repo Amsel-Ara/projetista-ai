@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
-
 type Notification = {
   id: string
   title: string
@@ -17,25 +15,40 @@ export default function NotificationsPage() {
   const supabase = createClient()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [orgId, setOrgId] = useState('')
+
+  // Fetch real organization_id
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', data.user.id)
+        .single()
+      if (profile?.organization_id) setOrgId(profile.organization_id)
+    })
+  }, [])
 
   useEffect(() => {
+    if (!orgId) return
     async function load() {
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('organization_id', ORG_ID)
+        .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
       if (data) setNotifications(data)
       setLoading(false)
     }
     load()
-  }, [])
+  }, [orgId])
 
   async function markAllRead() {
     await supabase
       .from('notifications')
       .update({ is_read: true })
-      .eq('organization_id', ORG_ID)
+      .eq('organization_id', orgId)
       .eq('is_read', false)
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
   }

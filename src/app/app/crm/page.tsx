@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const ORG_ID = 'a0000000-0000-0000-0000-000000000001'
-
 type Client = {
   id: string
   name: string
@@ -47,6 +45,7 @@ export default function CrmPage() {
   const router   = useRouter()
   const supabase = createClient()
 
+  const [orgId,      setOrgId]      = useState('')
   const [clients,    setClients]    = useState<Client[]>([])
   const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
@@ -56,6 +55,19 @@ export default function CrmPage() {
   const [form,       setForm]       = useState(EMPTY_FORM)
   const [saving,     setSaving]     = useState(false)
   const [saveError,  setSaveError]  = useState('')
+
+  // Fetch real organization_id from profile
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', data.user.id)
+        .single()
+      if (profile?.organization_id) setOrgId(profile.organization_id)
+    })
+  }, [])
 
   // Load clients from Supabase
   useEffect(() => {
@@ -114,7 +126,7 @@ export default function CrmPage() {
     const { data: clientData, error: clientErr } = await supabase
       .from('clients')
       .insert({
-        organization_id: ORG_ID,
+        organization_id: orgId,
         name:            form.name,
         whatsapp:        form.whatsapp,
         email:           form.email || null,
