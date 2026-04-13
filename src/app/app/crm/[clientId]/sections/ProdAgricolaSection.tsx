@@ -233,8 +233,8 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
       })
     }
     Promise.all([
-      supabase.from('crop_inputs').select('*').eq('production_id', expandedId).order('categoria'),
-      supabase.from('crop_production_field_history').select('*').eq('production_id', expandedId).order('changed_at', { ascending: false }),
+      supabase.from('crop_inputs').select('*').eq('crop_production_id', expandedId).order('categoria'),
+      supabase.from('crop_production_field_history').select('*').eq('crop_production_id', expandedId).order('changed_at', { ascending: false }),
     ]).then(([ins, hist]) => {
       setCropInputs(prev => ({ ...prev, [expandedId]: (ins.data ?? []) as CropInput[] }))
       setFieldHistory(prev => ({ ...prev, [expandedId]: (hist.data ?? []) as FieldHistoryRow[] }))
@@ -264,6 +264,20 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
     } else {
       const { data, error } = await supabase.from('crop_productions').insert(payload).select().single()
       if (error) { setSaveError(error.message); setSaving(false); return }
+      // Pre-fill dadosForm immediately from the created record so the
+      // Dados sub-tab is populated before loadProductions() resolves
+      setDadosForm({
+        property_id:         payload.property_id ?? '',
+        talhao_id:           payload.talhao_id ?? '',
+        area_ha:             payload.area_ha ?? '',
+        production_type:     payload.production_type ?? '',
+        tipo_cultivo:        payload.tipo_cultivo ?? '',
+        irrigacao:           payload.irrigacao,
+        safra:               payload.safra ?? '',
+        epoca_implantacao:   '',
+        epoca_colheita:      '',
+        municipio_ibge_code: '',
+      })
       setExpandedId(data.id)
       setExpandSubTab('dados')
     }
@@ -357,7 +371,7 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
     const payload = {
       organization_id: organizationId,
       client_id: clientId,
-      production_id: prodId,
+      crop_production_id: prodId,
       categoria: f.categoria,
       subcategoria: f.subcategoria || null,
       produto: f.produto || null,
@@ -379,7 +393,7 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
     setEditingInsumoId(null)
     setInsumoForm(EMPTY_INPUT_FORM)
     // Reload inputs
-    const { data } = await supabase.from('crop_inputs').select('*').eq('production_id', prodId).order('categoria')
+    const { data } = await supabase.from('crop_inputs').select('*').eq('crop_production_id', prodId).order('categoria')
     setCropInputs(prev => ({ ...prev, [prodId]: (data ?? []) as CropInput[] }))
   }
 

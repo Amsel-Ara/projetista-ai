@@ -206,8 +206,8 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
 
     Promise.all([
       loadBovino,
-      supabase.from('livestock_inputs').select('*').eq('production_id', expandedId).order('categoria'),
-      supabase.from('livestock_production_field_history').select('*').eq('production_id', expandedId).order('changed_at', { ascending: false }),
+      supabase.from('livestock_inputs').select('*').eq('livestock_production_id', expandedId).order('categoria'),
+      supabase.from('livestock_production_field_history').select('*').eq('livestock_production_id', expandedId).order('changed_at', { ascending: false }),
     ]).then(([bi, ins, hist]) => {
       if (bi.data) {
         setBovinoIndices(prev => ({ ...prev, [expandedId]: bi.data as BovinoIndex }))
@@ -349,7 +349,7 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
     const payload = {
       organization_id: organizationId,
       client_id: clientId,
-      production_id: prodId,
+      livestock_production_id: prodId,
       categoria: f.categoria,
       produto: f.produto || null,
       custo_total: f.custo_total ? parseFloat(f.custo_total) : null,
@@ -364,7 +364,7 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
     setInsumoDrawer(false)
     setEditingInsumoId(null)
     setInsumoForm(EMPTY_INPUT_FORM)
-    const { data } = await supabase.from('livestock_inputs').select('*').eq('production_id', prodId).order('categoria')
+    const { data } = await supabase.from('livestock_inputs').select('*').eq('livestock_production_id', prodId).order('categoria')
     setLstkInputs(prev => ({ ...prev, [prodId]: (data ?? []) as LivestockInput[] }))
   }
 
