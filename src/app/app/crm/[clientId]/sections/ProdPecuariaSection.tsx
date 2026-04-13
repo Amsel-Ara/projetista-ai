@@ -167,38 +167,46 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
 
   useEffect(() => { loadProductions() }, [loadProductions])
 
-  // Load sub-data when expandedId changes
+  // Pre-fill all sub-tab forms whenever the expanded production record
+  // becomes available in the productions array. Handles both:
+  // (a) user expands an existing card — prod found immediately
+  // (b) user creates a new activity — prod not in array yet; fires again
+  //     once loadProductions() completes and productions updates
+  useEffect(() => {
+    if (!expandedId) return
+    const prod = productions.find(p => p.id === expandedId)
+    if (!prod) return
+    setDadosForm({
+      species_type: prod.species_type ?? '',
+      property_id: prod.property_id ?? '',
+      qtd_total: prod.qtd_total ?? '',
+      qtd_vacas: prod.qtd_vacas ?? '',
+      qtd_touros: prod.qtd_touros ?? '',
+      qtd_novilhas: prod.qtd_novilhas ?? '',
+      qtd_bezerros: prod.qtd_bezerros ?? '',
+      municipio_ibge_code: prod.municipio_ibge_code ?? '',
+    })
+    setCustosForm({
+      custo_alimentacao: prod.custo_alimentacao?.toString() ?? '',
+      custo_assist_veterinaria: prod.custo_assist_veterinaria?.toString() ?? '',
+      custo_vacinas: prod.custo_vacinas?.toString() ?? '',
+      custo_mao_de_obra: prod.custo_mao_de_obra?.toString() ?? '',
+      custo_reproducao: prod.custo_reproducao?.toString() ?? '',
+      total_custeio: prod.total_custeio?.toString() ?? '',
+    })
+    setReceitasForm({
+      receita_animais: prod.receita_animais?.toString() ?? '',
+      receita_produtos: prod.receita_produtos?.toString() ?? '',
+      receita_total: prod.receita_total?.toString() ?? '',
+      receita_liquida_anual: prod.receita_liquida_anual?.toString() ?? '',
+    })
+  }, [expandedId, productions])
+
+  // Load bovino_indices + livestock_inputs + field_history when a card is expanded
   useEffect(() => {
     if (!expandedId) return
     setSubLoading(true)
     const prod = productions.find(p => p.id === expandedId)
-    if (prod) {
-      setDadosForm({
-        species_type: prod.species_type ?? '',
-        property_id: prod.property_id ?? '',
-        qtd_total: prod.qtd_total ?? '',
-        qtd_vacas: prod.qtd_vacas ?? '',
-        qtd_touros: prod.qtd_touros ?? '',
-        qtd_novilhas: prod.qtd_novilhas ?? '',
-        qtd_bezerros: prod.qtd_bezerros ?? '',
-        municipio_ibge_code: prod.municipio_ibge_code ?? '',
-      })
-      setCustosForm({
-        custo_alimentacao: prod.custo_alimentacao?.toString() ?? '',
-        custo_assist_veterinaria: prod.custo_assist_veterinaria?.toString() ?? '',
-        custo_vacinas: prod.custo_vacinas?.toString() ?? '',
-        custo_mao_de_obra: prod.custo_mao_de_obra?.toString() ?? '',
-        custo_reproducao: prod.custo_reproducao?.toString() ?? '',
-        total_custeio: prod.total_custeio?.toString() ?? '',
-      })
-      setReceitasForm({
-        receita_animais: prod.receita_animais?.toString() ?? '',
-        receita_produtos: prod.receita_produtos?.toString() ?? '',
-        receita_total: prod.receita_total?.toString() ?? '',
-        receita_liquida_anual: prod.receita_liquida_anual?.toString() ?? '',
-      })
-    }
-
     const isBovino = prod?.species_type?.startsWith('bovino')
     const loadBovino = isBovino
       ? supabase.from('bovino_indices').select('*').eq('livestock_production_id', expandedId).maybeSingle()

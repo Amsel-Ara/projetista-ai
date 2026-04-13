@@ -185,53 +185,60 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
 
   useEffect(() => { loadProductions() }, [loadProductions])
 
-  // Load sub-data when expandedId changes
+  // Pre-fill all sub-tab forms whenever the expanded production record
+  // becomes available in the productions array. This handles both cases:
+  // (a) user expands an existing card — prod found immediately
+  // (b) user creates a new activity — prod not in array yet; fires again
+  //     once loadProductions() completes and productions updates
+  useEffect(() => {
+    if (!expandedId) return
+    const prod = productions.find(p => p.id === expandedId)
+    if (!prod) return
+    setDadosForm({
+      property_id:         prod.property_id ?? '',
+      talhao_id:           prod.talhao_id ?? '',
+      area_ha:             prod.area_ha ?? '',
+      production_type:     prod.production_type ?? '',
+      tipo_cultivo:        prod.tipo_cultivo ?? '',
+      irrigacao:           prod.irrigacao,
+      safra:               prod.safra ?? '',
+      epoca_implantacao:   prod.epoca_implantacao ?? '',
+      epoca_colheita:      prod.epoca_colheita ?? '',
+      municipio_ibge_code: prod.municipio_ibge_code ?? '',
+    })
+    setCustosForm({
+      custo_sementes:       prod.custo_sementes?.toString() ?? '',
+      custo_fertilizantes:  prod.custo_fertilizantes?.toString() ?? '',
+      custo_defensivos:     prod.custo_defensivos?.toString() ?? '',
+      custo_mao_de_obra:    prod.custo_mao_de_obra?.toString() ?? '',
+      custo_energia:        prod.custo_energia?.toString() ?? '',
+      custo_combustivel:    prod.custo_combustivel?.toString() ?? '',
+      custo_arrendamento:   prod.custo_arrendamento?.toString() ?? '',
+      custo_outros:         prod.custo_outros?.toString() ?? '',
+      custo_total:          prod.custo_total?.toString() ?? '',
+    })
+    setReceitasForm({
+      produtividade_prevista:    prod.produtividade_prevista?.toString() ?? '',
+      produtividade_obtida:      prod.produtividade_obtida?.toString() ?? '',
+      unidade_produtividade:     prod.unidade_produtividade ?? 'kg/ha',
+      preco_unitario:            prod.preco_unitario?.toString() ?? '',
+      receita_bruta:             prod.receita_bruta?.toString() ?? '',
+      despesas_comercializacao:  prod.despesas_comercializacao?.toString() ?? '',
+      receita_liquida:           prod.receita_liquida?.toString() ?? '',
+    })
+    setPraticasForm({
+      plantio_direto:    prod.plantio_direto,
+      subsolagem:        prod.subsolagem,
+      calagem:           prod.calagem,
+      planta_cobertura:  prod.planta_cobertura ?? '',
+      sistema_integracao: prod.sistema_integracao ?? '',
+    })
+  }, [expandedId, productions])
+
+  // Load crop_inputs + field_history when a card is expanded
   useEffect(() => {
     if (!expandedId) return
     setSubLoading(true)
-    const prod = productions.find(p => p.id === expandedId)
-    if (prod) {
-      // Prefill form states
-      setDadosForm({
-        property_id: prod.property_id ?? '',
-        talhao_id: prod.talhao_id ?? '',
-        area_ha: prod.area_ha ?? '',
-        production_type: prod.production_type ?? '',
-        tipo_cultivo: prod.tipo_cultivo ?? '',
-        irrigacao: prod.irrigacao,
-        safra: prod.safra ?? '',
-        epoca_implantacao: prod.epoca_implantacao ?? '',
-        epoca_colheita: prod.epoca_colheita ?? '',
-        municipio_ibge_code: prod.municipio_ibge_code ?? '',
-      })
-      setCustosForm({
-        custo_sementes: prod.custo_sementes?.toString() ?? '',
-        custo_fertilizantes: prod.custo_fertilizantes?.toString() ?? '',
-        custo_defensivos: prod.custo_defensivos?.toString() ?? '',
-        custo_mao_de_obra: prod.custo_mao_de_obra?.toString() ?? '',
-        custo_energia: prod.custo_energia?.toString() ?? '',
-        custo_combustivel: prod.custo_combustivel?.toString() ?? '',
-        custo_arrendamento: prod.custo_arrendamento?.toString() ?? '',
-        custo_outros: prod.custo_outros?.toString() ?? '',
-        custo_total: prod.custo_total?.toString() ?? '',
-      })
-      setReceitasForm({
-        produtividade_prevista: prod.produtividade_prevista?.toString() ?? '',
-        produtividade_obtida: prod.produtividade_obtida?.toString() ?? '',
-        unidade_produtividade: prod.unidade_produtividade ?? 'kg/ha',
-        preco_unitario: prod.preco_unitario?.toString() ?? '',
-        receita_bruta: prod.receita_bruta?.toString() ?? '',
-        despesas_comercializacao: prod.despesas_comercializacao?.toString() ?? '',
-        receita_liquida: prod.receita_liquida?.toString() ?? '',
-      })
-      setPraticasForm({
-        plantio_direto: prod.plantio_direto,
-        subsolagem: prod.subsolagem,
-        calagem: prod.calagem,
-        planta_cobertura: prod.planta_cobertura ?? '',
-        sistema_integracao: prod.sistema_integracao ?? '',
-      })
-    }
     Promise.all([
       supabase.from('crop_inputs').select('*').eq('crop_production_id', expandedId).order('categoria'),
       supabase.from('crop_production_field_history').select('*').eq('crop_production_id', expandedId).order('changed_at', { ascending: false }),
