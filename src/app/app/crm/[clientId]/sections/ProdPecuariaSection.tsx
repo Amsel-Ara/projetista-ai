@@ -519,31 +519,6 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                    {/* Edit button */}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation()
-                        setEditingProd(prod.id)
-                        setProdForm({
-                          species_type: prod.species_type ?? 'bovino_corte',
-                          property_id: prod.property_id ?? '',
-                          talhao_id: prod.talhao_id ?? '',
-                          qtd_total: prod.qtd_total?.toString() ?? '',
-                          qtd_vacas: prod.qtd_vacas?.toString() ?? '',
-                          qtd_touros: prod.qtd_touros?.toString() ?? '',
-                          qtd_novilhas: prod.qtd_novilhas?.toString() ?? '',
-                          qtd_bezerros: prod.qtd_bezerros?.toString() ?? '',
-                          municipio_ibge_code: prod.municipio_ibge_code ?? '',
-                        })
-                        setDrawerOpen(true)
-                      }}
-                      style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
-                    >✏ Editar</button>
-                    {/* Delete button */}
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
-                      style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
-                    >×</button>
                     {/* Chevron */}
                     <span style={{
                       fontSize: '18px',
@@ -648,9 +623,17 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
                                   onChange={e => setDadosForm(f => ({ ...f, municipio_ibge_code: e.target.value }))} />
                               </div>
                             </div>
-                            <button onClick={() => handleSaveDados(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
-                              {subSaving ? 'Salvando…' : 'Salvar Dados'}
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <button onClick={() => handleSaveDados(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
+                                {subSaving ? 'Salvando…' : 'Salvar Dados'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProd(prod.id)}
+                                style={{ padding: '9px 16px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', color: '#dc2626', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Excluir
+                              </button>
+                            </div>
                           </div>
                         )}
 

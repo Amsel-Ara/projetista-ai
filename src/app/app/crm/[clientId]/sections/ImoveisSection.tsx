@@ -839,6 +839,12 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
                         {dadosSaving ? 'Salvando…' : 'Salvar dados'}
                       </button>
                       {dadosSaved && <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Salvo</span>}
+                      <button
+                        onClick={() => setDeletePropId(sheetPropId)}
+                        style={{ padding: '9px 16px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', color: '#dc2626', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginLeft: 'auto' }}
+                      >
+                        Excluir Imóvel
+                      </button>
                     </div>
                   </div>
                 )}

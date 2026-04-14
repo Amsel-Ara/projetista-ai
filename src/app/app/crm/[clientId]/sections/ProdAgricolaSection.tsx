@@ -487,30 +487,6 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                  {/* Edit button */}
-                  <button
-                    onClick={e => {
-                      e.stopPropagation()
-                      setEditingProd(prod.id)
-                      setProdForm({
-                        atividade: prod.atividade,
-                        safra: prod.safra ?? getDefaultSafra(),
-                        property_id: prod.property_id,
-                        talhao_id: prod.talhao_id ?? '',
-                        area_ha: prod.area_ha?.toString() ?? '',
-                        tipo_cultivo: prod.tipo_cultivo ?? '',
-                        production_type: prod.production_type ?? '',
-                        irrigacao: prod.irrigacao,
-                      })
-                      setDrawerOpen(true)
-                    }}
-                    style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
-                  >✏ Editar</button>
-                  {/* Delete button */}
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
-                    style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
-                  >×</button>
                   {/* Chevron */}
                   <span style={{
                     fontSize: '18px',
@@ -625,9 +601,17 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
                                   value={String(dadosForm.municipio_ibge_code ?? '')} onChange={e => setDadosForm(f => ({ ...f, municipio_ibge_code: e.target.value }))} />
                               </div>
                             </div>
-                            <button onClick={() => handleSaveDados(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
-                              {subSaving ? 'Salvando…' : 'Salvar Dados'}
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <button onClick={() => handleSaveDados(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
+                                {subSaving ? 'Salvando…' : 'Salvar Dados'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProd(prod.id)}
+                                style={{ padding: '9px 16px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', color: '#dc2626', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                Excluir
+                              </button>
+                            </div>
                           </div>
                         )}
 
