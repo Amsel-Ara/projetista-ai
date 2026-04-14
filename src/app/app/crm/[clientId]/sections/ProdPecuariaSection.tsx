@@ -486,33 +486,82 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
           <p style={{ fontSize: '12px', color: '#878C91' }}>Adicione uma atividade pecuária para este cliente.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ position: 'relative', minHeight: '300px' }}>
+          {/* Card list */}
           {productions.map(prod => {
-            const isExpanded = expandedId === prod.id
             const speciesLabel = prod.species_type ? (SPECIES_LABELS[prod.species_type] ?? prod.species_type) : 'Espécie não definida'
-
             return (
-              <div key={prod.id}>
-                {/* Card */}
-                <div style={{ background: '#fff', borderRadius: isExpanded ? '14px 14px 0 0' : '14px', padding: '16px 20px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: isExpanded ? '1.5px solid #B95B37' : '1.5px solid var(--color-border)', borderBottom: isExpanded ? 'none' : undefined }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div
+                key={prod.id}
+                onClick={() => {
+                  setExpandedId(expandedId === prod.id ? null : prod.id)
+                  setExpandSubTab('dados')
+                }}
+                style={{
+                  background: 'white',
+                  border: '1px solid #ebe9e5',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginBottom: '10px',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#B95B37'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(185,91,55,0.12)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#ebe9e5'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a' }}>{speciesLabel}</div>
+                  <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                    {prod.property_nome && <span>{prod.property_nome}</span>}
+                    {prod.qtd_total && <span> · {prod.qtd_total.toLocaleString('pt-BR')} animais</span>}
+                  </div>
+                </div>
+                <span style={{ fontSize: '18px', color: '#bbb', flexShrink: 0 }}>›</span>
+              </div>
+            )
+          })}
+
+          {/* Bottom sheet */}
+          {expandedId && (() => {
+            const prod = productions.find(p => p.id === expandedId)
+            if (!prod) return null
+            const speciesLabel = prod.species_type ? (SPECIES_LABELS[prod.species_type] ?? prod.species_type) : 'Espécie não definida'
+            return (
+              <>
+                {/* Backdrop */}
+                <div
+                  onClick={() => setExpandedId(null)}
+                  style={{ position: 'absolute', inset: 0, background: 'rgba(30,28,26,0.4)', zIndex: 10, borderRadius: '10px' }}
+                />
+                {/* Sheet */}
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  height: '93%', background: 'white',
+                  borderRadius: '18px 18px 0 0', zIndex: 20,
+                  display: 'flex', flexDirection: 'column',
+                  boxShadow: '0 -4px 32px rgba(0,0,0,0.18)',
+                }}>
+                  {/* Drag handle */}
+                  <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '12px', paddingBottom: '8px', flexShrink: 0 }}>
+                    <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d0ce' }} />
+                  </div>
+                  {/* Header */}
+                  <div style={{ padding: '0 20px 14px', flexShrink: 0, borderBottom: '1px solid #ebe9e5', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                     <div>
-                      <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '15px', color: '#010205' }}>
-                        {speciesLabel}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#878C91', marginTop: '3px' }}>
+                      <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a', marginBottom: 2 }}>{speciesLabel}</div>
+                      <div style={{ fontSize: '12px', color: '#888' }}>
                         {prod.property_nome && <span>{prod.property_nome}</span>}
                         {prod.qtd_total && <span> · {prod.qtd_total.toLocaleString('pt-BR')} animais</span>}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#878C91', marginTop: '2px' }}>
-                        {prod.total_custeio && <span>Custeio: R$ {fmtBRL(prod.total_custeio)}</span>}
-                        {prod.receita_total && <span> · Receita: R$ {fmtBRL(prod.receita_total)}</span>}
-                        {prod.receita_liquida_anual && <span> · Lucro: R$ {fmtBRL(prod.receita_liquida_anual)}</span>}
-                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                      {/* Edit button */}
                       <button
-                        onClick={() => {
+                        onClick={e => {
+                          e.stopPropagation()
                           setEditingProd(prod.id)
                           setProdForm({
                             species_type: prod.species_type ?? 'bovino_corte',
@@ -527,312 +576,296 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
                           })
                           setDrawerOpen(true)
                         }}
-                        style={{ padding: '5px 10px', border: '1.5px solid var(--color-border)', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}
-                      >
-                        ✏
-                      </button>
+                        style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
+                      >✏ Editar</button>
+                      {/* Delete button */}
                       <button
-                        onClick={() => handleDeleteProd(prod.id)}
-                        style={{ padding: '5px 10px', border: '1.5px solid #fecaca', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}
-                      >
-                        ×
-                      </button>
+                        onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
+                        style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
+                      >×</button>
+                      {/* Close */}
                       <button
-                        onClick={() => {
-                          if (isExpanded) { setExpandedId(null) }
-                          else { setExpandedId(prod.id); setExpandSubTab('dados') }
-                        }}
-                        style={{ padding: '5px 12px', border: 'none', borderRadius: '7px', background: isExpanded ? '#B95B37' : '#FDF0EB', color: isExpanded ? '#fff' : '#B95B37', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        {isExpanded ? 'Fechar' : 'Expandir'}
-                      </button>
+                        onClick={() => setExpandedId(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#888', padding: '4px', lineHeight: 1 }}
+                      >×</button>
                     </div>
+                  </div>
+                  {/* Sub-tab bar */}
+                  <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                    {(['dados', 'indices', 'custos', 'receitas', 'insumos', 'historico'] as PecSubTab[]).map(tab => (
+                      <button key={tab} onClick={() => setExpandSubTab(tab)} style={{
+                        flexShrink: 0, padding: '10px 18px', border: 'none',
+                        borderBottom: expandSubTab === tab ? '2.5px solid #B95B37' : '2.5px solid transparent',
+                        marginBottom: -1, background: 'none', cursor: 'pointer', fontSize: 13,
+                        fontWeight: expandSubTab === tab ? 700 : 500,
+                        color: expandSubTab === tab ? '#1e1c1a' : '#999',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {tab === 'indices' ? 'Índices' : tab === 'historico' ? 'Histórico' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Scrollable content */}
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#f9f8f6' }}>
+                    {subLoading ? (
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#888', fontSize: '13px' }}>Carregando…</div>
+                    ) : (
+                      <>
+                        {/* DADOS */}
+                        {expandSubTab === 'dados' && (
+                          <div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                              <div>
+                                <div style={LABEL_STYLE}>Espécie / tipo</div>
+                                <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  value={String(dadosForm.species_type ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, species_type: e.target.value }))}>
+                                  {Object.entries(SPECIES_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Imóvel</div>
+                                <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  value={String(dadosForm.property_id ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, property_id: e.target.value }))}>
+                                  <option value="">Selecionar…</option>
+                                  {properties.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Qtd. total</div>
+                                <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  type="number" min="0"
+                                  value={String(dadosForm.qtd_total ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, qtd_total: e.target.value }))} />
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Vacas</div>
+                                <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  type="number" min="0"
+                                  value={String(dadosForm.qtd_vacas ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, qtd_vacas: e.target.value }))} />
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Touros</div>
+                                <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  type="number" min="0"
+                                  value={String(dadosForm.qtd_touros ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, qtd_touros: e.target.value }))} />
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Novilhas</div>
+                                <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  type="number" min="0"
+                                  value={String(dadosForm.qtd_novilhas ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, qtd_novilhas: e.target.value }))} />
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Bezerros</div>
+                                <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  type="number" min="0"
+                                  value={String(dadosForm.qtd_bezerros ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, qtd_bezerros: e.target.value }))} />
+                              </div>
+                              <div>
+                                <div style={LABEL_STYLE}>Código IBGE município</div>
+                                <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                  value={String(dadosForm.municipio_ibge_code ?? '')}
+                                  onChange={e => setDadosForm(f => ({ ...f, municipio_ibge_code: e.target.value }))} />
+                              </div>
+                            </div>
+                            <button onClick={() => handleSaveDados(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
+                              {subSaving ? 'Salvando…' : 'Salvar Dados'}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* ÍNDICES */}
+                        {expandSubTab === 'indices' && <IndicesForm prod={prod} />}
+
+                        {/* CUSTOS */}
+                        {expandSubTab === 'custos' && (
+                          <div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                              {[
+                                { key: 'custo_alimentacao', label: 'Alimentação' },
+                                { key: 'custo_assist_veterinaria', label: 'Assistência veterinária' },
+                                { key: 'custo_vacinas', label: 'Vacinas' },
+                                { key: 'custo_mao_de_obra', label: 'Mão de obra' },
+                                { key: 'custo_reproducao', label: 'Reprodução' },
+                                { key: 'total_custeio', label: 'Total custeio' },
+                              ].map(({ key, label }) => (
+                                <div key={key}>
+                                  <div style={LABEL_STYLE}>{label} (R$)</div>
+                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                    type="number" step="0.01" min="0"
+                                    value={custosForm[key as keyof typeof custosForm] ?? ''}
+                                    onChange={e => setCustosForm(f => ({ ...f, [key]: e.target.value }))} />
+                                </div>
+                              ))}
+                            </div>
+                            <button onClick={() => handleSaveCustos(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
+                              {subSaving ? 'Salvando…' : 'Salvar Custos'}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* RECEITAS */}
+                        {expandSubTab === 'receitas' && (
+                          <div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                              {[
+                                { key: 'receita_animais', label: 'Receita animais' },
+                                { key: 'receita_produtos', label: 'Receita produtos (leite/ovos…)' },
+                                { key: 'receita_total', label: 'Receita total' },
+                                { key: 'receita_liquida_anual', label: 'Receita líquida anual' },
+                              ].map(({ key, label }) => (
+                                <div key={key}>
+                                  <div style={LABEL_STYLE}>{label} (R$)</div>
+                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                    type="number" step="0.01" min="0"
+                                    value={receitasForm[key as keyof typeof receitasForm] ?? ''}
+                                    onChange={e => setReceitasForm(f => ({ ...f, [key]: e.target.value }))} />
+                                </div>
+                              ))}
+                            </div>
+                            <button onClick={() => handleSaveReceitas(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
+                              {subSaving ? 'Salvando…' : 'Salvar Receitas'}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* INSUMOS */}
+                        {expandSubTab === 'insumos' && (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+                              <button onClick={() => { setEditingInsumoId(null); setInsumoForm(EMPTY_INPUT_FORM); setInsumoDrawer(true) }}
+                                style={{ padding: '7px 14px', border: 'none', borderRadius: '8px', background: '#B95B37', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                                + Novo Insumo
+                              </button>
+                            </div>
+                            {(lstkInputs[prod.id] ?? []).length === 0 ? (
+                              <p style={{ fontSize: '13px', color: '#878C91', textAlign: 'center', padding: '16px 0' }}>Nenhum insumo registrado.</p>
+                            ) : (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                <thead>
+                                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                    {['Categoria', 'Produto', 'Custo total', 'Data', ''].map(h => (
+                                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '11px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(lstkInputs[prod.id] ?? []).map(ins => (
+                                    <tr key={ins.id} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+                                      <td style={{ padding: '8px' }}><span style={{ background: '#FDF0EB', color: '#B95B37', borderRadius: '4px', padding: '2px 7px', fontSize: '11px', fontWeight: 600 }}>{ins.categoria}</span></td>
+                                      <td style={{ padding: '8px' }}>{ins.produto ?? '—'}</td>
+                                      <td style={{ padding: '8px' }}>R$ {fmtBRL(ins.custo_total)}</td>
+                                      <td style={{ padding: '8px' }}>{ins.data_aplicacao ? new Date(ins.data_aplicacao).toLocaleDateString('pt-BR') : '—'}</td>
+                                      <td style={{ padding: '8px' }}>
+                                        <button onClick={() => {
+                                          setEditingInsumoId(ins.id)
+                                          setInsumoForm({
+                                            categoria: ins.categoria,
+                                            produto: ins.produto ?? '',
+                                            custo_total: ins.custo_total?.toString() ?? '',
+                                            data_aplicacao: ins.data_aplicacao ?? '',
+                                          })
+                                          setInsumoDrawer(true)
+                                        }} style={{ padding: '3px 8px', border: '1.5px solid var(--color-border)', borderRadius: '6px', background: '#fff', fontSize: '11px', cursor: 'pointer' }}>✏</button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+
+                            {insumoDrawer && (
+                              <>
+                                <div onClick={() => setInsumoDrawer(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} />
+                                <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px', background: '#fff', zIndex: 301, display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 48px rgba(0,0,0,0.16)' }}>
+                                  <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#010205' }}>{editingInsumoId ? 'Editar Insumo' : 'Novo Insumo'}</div>
+                                    <button onClick={() => setInsumoDrawer(false)} style={{ border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%', fontSize: '16px', color: '#878C91' }}>×</button>
+                                  </div>
+                                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                    <div>
+                                      <div style={LABEL_STYLE}>Categoria</div>
+                                      <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                        value={insumoForm.categoria}
+                                        onChange={e => setInsumoForm(f => ({ ...f, categoria: e.target.value }))}>
+                                        {['alimentacao', 'vacina', 'medicamento', 'suplemento', 'outros'].map(o => <option key={o} value={o}>{o}</option>)}
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <div style={LABEL_STYLE}>Produto</div>
+                                      <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                        value={insumoForm.produto}
+                                        onChange={e => setInsumoForm(f => ({ ...f, produto: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                      <div style={LABEL_STYLE}>Custo total (R$)</div>
+                                      <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                        type="number" step="0.01"
+                                        value={insumoForm.custo_total}
+                                        onChange={e => setInsumoForm(f => ({ ...f, custo_total: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                      <div style={LABEL_STYLE}>Data de aplicação</div>
+                                      <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                                        type="date"
+                                        value={insumoForm.data_aplicacao}
+                                        onChange={e => setInsumoForm(f => ({ ...f, data_aplicacao: e.target.value }))} />
+                                    </div>
+                                  </div>
+                                  <div style={{ padding: '14px 20px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <button onClick={() => setInsumoDrawer(false)} style={{ padding: '8px 16px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                                    <button onClick={() => handleSaveInsumo(prod.id)} disabled={insumoSaving}
+                                      style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: insumoSaving ? '#d4956f' : '#B95B37', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: insumoSaving ? 'not-allowed' : 'pointer' }}>
+                                      {insumoSaving ? 'Salvando…' : 'Salvar'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {/* HISTÓRICO */}
+                        {expandSubTab === 'historico' && (
+                          <div>
+                            {(fieldHistory[prod.id] ?? []).length === 0 ? (
+                              <p style={{ fontSize: '13px', color: '#878C91', textAlign: 'center', padding: '16px 0' }}>Nenhuma alteração registrada.</p>
+                            ) : (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                <thead>
+                                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                    {['Campo', 'Antes', 'Depois', 'Data'].map(h => (
+                                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '11px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(fieldHistory[prod.id] ?? []).map(h => (
+                                    <tr key={h.id} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
+                                      <td style={{ padding: '7px 8px', fontWeight: 600 }}>{h.field_name}</td>
+                                      <td style={{ padding: '7px 8px', color: '#dc2626' }}>{h.old_value ?? '—'}</td>
+                                      <td style={{ padding: '7px 8px', color: '#16a34a' }}>{h.new_value ?? '—'}</td>
+                                      <td style={{ padding: '7px 8px', color: '#878C91' }}>{new Date(h.changed_at).toLocaleDateString('pt-BR')}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-
-                {/* Expanded sub-tabs */}
-                {isExpanded && (
-                  <div style={{ background: '#fff', borderRadius: '0 0 14px 14px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid #B95B37', borderTop: '1px solid #f3f4f6' }}>
-                    <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', overflowX: 'auto', scrollbarWidth: 'none' }}>
-                      {(['dados', 'indices', 'custos', 'receitas', 'insumos', 'historico'] as PecSubTab[]).map(tab => (
-                        <button
-                          key={tab}
-                          onClick={() => setExpandSubTab(tab)}
-                          style={{
-                            flexShrink: 0, padding: '10px 16px', border: 'none',
-                            borderBottom: expandSubTab === tab ? '2px solid #B95B37' : '2px solid transparent',
-                            background: 'none', cursor: 'pointer', fontSize: '12px',
-                            fontWeight: expandSubTab === tab ? 700 : 500,
-                            color: expandSubTab === tab ? '#010205' : '#878C91',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {tab === 'indices' ? 'Índices' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div style={{ padding: '20px 24px' }}>
-                      {subLoading ? (
-                        <div style={{ textAlign: 'center', padding: '20px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
-                      ) : (
-                        <>
-                          {/* DADOS */}
-                          {expandSubTab === 'dados' && (
-                            <div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
-                                <div>
-                                  <div style={LABEL_STYLE}>Espécie / tipo</div>
-                                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    value={String(dadosForm.species_type ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, species_type: e.target.value }))}>
-                                    {Object.entries(SPECIES_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                                  </select>
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Imóvel</div>
-                                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    value={String(dadosForm.property_id ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, property_id: e.target.value }))}>
-                                    <option value="">Selecionar…</option>
-                                    {properties.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                                  </select>
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Qtd. total</div>
-                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    type="number" min="0"
-                                    value={String(dadosForm.qtd_total ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, qtd_total: e.target.value }))} />
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Vacas</div>
-                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    type="number" min="0"
-                                    value={String(dadosForm.qtd_vacas ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, qtd_vacas: e.target.value }))} />
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Touros</div>
-                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    type="number" min="0"
-                                    value={String(dadosForm.qtd_touros ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, qtd_touros: e.target.value }))} />
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Novilhas</div>
-                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    type="number" min="0"
-                                    value={String(dadosForm.qtd_novilhas ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, qtd_novilhas: e.target.value }))} />
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Bezerros</div>
-                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    type="number" min="0"
-                                    value={String(dadosForm.qtd_bezerros ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, qtd_bezerros: e.target.value }))} />
-                                </div>
-                                <div>
-                                  <div style={LABEL_STYLE}>Código IBGE município</div>
-                                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                    value={String(dadosForm.municipio_ibge_code ?? '')}
-                                    onChange={e => setDadosForm(f => ({ ...f, municipio_ibge_code: e.target.value }))} />
-                                </div>
-                              </div>
-                              <button onClick={() => handleSaveDados(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
-                                {subSaving ? 'Salvando…' : 'Salvar Dados'}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* ÍNDICES */}
-                          {expandSubTab === 'indices' && <IndicesForm prod={prod} />}
-
-                          {/* CUSTOS */}
-                          {expandSubTab === 'custos' && (
-                            <div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
-                                {[
-                                  { key: 'custo_alimentacao', label: 'Alimentação' },
-                                  { key: 'custo_assist_veterinaria', label: 'Assistência veterinária' },
-                                  { key: 'custo_vacinas', label: 'Vacinas' },
-                                  { key: 'custo_mao_de_obra', label: 'Mão de obra' },
-                                  { key: 'custo_reproducao', label: 'Reprodução' },
-                                  { key: 'total_custeio', label: 'Total custeio' },
-                                ].map(({ key, label }) => (
-                                  <div key={key}>
-                                    <div style={LABEL_STYLE}>{label} (R$)</div>
-                                    <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                      type="number" step="0.01" min="0"
-                                      value={custosForm[key as keyof typeof custosForm] ?? ''}
-                                      onChange={e => setCustosForm(f => ({ ...f, [key]: e.target.value }))} />
-                                  </div>
-                                ))}
-                              </div>
-                              <button onClick={() => handleSaveCustos(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
-                                {subSaving ? 'Salvando…' : 'Salvar Custos'}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* RECEITAS */}
-                          {expandSubTab === 'receitas' && (
-                            <div>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
-                                {[
-                                  { key: 'receita_animais', label: 'Receita animais' },
-                                  { key: 'receita_produtos', label: 'Receita produtos (leite/ovos…)' },
-                                  { key: 'receita_total', label: 'Receita total' },
-                                  { key: 'receita_liquida_anual', label: 'Receita líquida anual' },
-                                ].map(({ key, label }) => (
-                                  <div key={key}>
-                                    <div style={LABEL_STYLE}>{label} (R$)</div>
-                                    <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                      type="number" step="0.01" min="0"
-                                      value={receitasForm[key as keyof typeof receitasForm] ?? ''}
-                                      onChange={e => setReceitasForm(f => ({ ...f, [key]: e.target.value }))} />
-                                  </div>
-                                ))}
-                              </div>
-                              <button onClick={() => handleSaveReceitas(prod.id)} disabled={subSaving} className="btn-primary" style={{ opacity: subSaving ? 0.7 : 1 }}>
-                                {subSaving ? 'Salvando…' : 'Salvar Receitas'}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* INSUMOS */}
-                          {expandSubTab === 'insumos' && (
-                            <div>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                                <button onClick={() => { setEditingInsumoId(null); setInsumoForm(EMPTY_INPUT_FORM); setInsumoDrawer(true) }}
-                                  style={{ padding: '7px 14px', border: 'none', borderRadius: '8px', background: '#B95B37', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                                  + Novo Insumo
-                                </button>
-                              </div>
-                              {(lstkInputs[prod.id] ?? []).length === 0 ? (
-                                <p style={{ fontSize: '13px', color: '#878C91', textAlign: 'center', padding: '16px 0' }}>Nenhum insumo registrado.</p>
-                              ) : (
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                                  <thead>
-                                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                      {['Categoria', 'Produto', 'Custo total', 'Data', ''].map(h => (
-                                        <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '11px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase' }}>{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(lstkInputs[prod.id] ?? []).map(ins => (
-                                      <tr key={ins.id} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-                                        <td style={{ padding: '8px' }}><span style={{ background: '#FDF0EB', color: '#B95B37', borderRadius: '4px', padding: '2px 7px', fontSize: '11px', fontWeight: 600 }}>{ins.categoria}</span></td>
-                                        <td style={{ padding: '8px' }}>{ins.produto ?? '—'}</td>
-                                        <td style={{ padding: '8px' }}>R$ {fmtBRL(ins.custo_total)}</td>
-                                        <td style={{ padding: '8px' }}>{ins.data_aplicacao ? new Date(ins.data_aplicacao).toLocaleDateString('pt-BR') : '—'}</td>
-                                        <td style={{ padding: '8px' }}>
-                                          <button onClick={() => {
-                                            setEditingInsumoId(ins.id)
-                                            setInsumoForm({
-                                              categoria: ins.categoria,
-                                              produto: ins.produto ?? '',
-                                              custo_total: ins.custo_total?.toString() ?? '',
-                                              data_aplicacao: ins.data_aplicacao ?? '',
-                                            })
-                                            setInsumoDrawer(true)
-                                          }} style={{ padding: '3px 8px', border: '1.5px solid var(--color-border)', borderRadius: '6px', background: '#fff', fontSize: '11px', cursor: 'pointer' }}>✏</button>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-
-                              {insumoDrawer && (
-                                <>
-                                  <div onClick={() => setInsumoDrawer(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 300 }} />
-                                  <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px', background: '#fff', zIndex: 301, display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 48px rgba(0,0,0,0.16)' }}>
-                                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <div style={{ fontWeight: 800, fontSize: '15px', color: '#010205' }}>{editingInsumoId ? 'Editar Insumo' : 'Novo Insumo'}</div>
-                                      <button onClick={() => setInsumoDrawer(false)} style={{ border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer', width: '28px', height: '28px', borderRadius: '50%', fontSize: '16px', color: '#878C91' }}>×</button>
-                                    </div>
-                                    <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                      <div>
-                                        <div style={LABEL_STYLE}>Categoria</div>
-                                        <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                          value={insumoForm.categoria}
-                                          onChange={e => setInsumoForm(f => ({ ...f, categoria: e.target.value }))}>
-                                          {['alimentacao', 'vacina', 'medicamento', 'suplemento', 'outros'].map(o => <option key={o} value={o}>{o}</option>)}
-                                        </select>
-                                      </div>
-                                      <div>
-                                        <div style={LABEL_STYLE}>Produto</div>
-                                        <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                          value={insumoForm.produto}
-                                          onChange={e => setInsumoForm(f => ({ ...f, produto: e.target.value }))} />
-                                      </div>
-                                      <div>
-                                        <div style={LABEL_STYLE}>Custo total (R$)</div>
-                                        <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                          type="number" step="0.01"
-                                          value={insumoForm.custo_total}
-                                          onChange={e => setInsumoForm(f => ({ ...f, custo_total: e.target.value }))} />
-                                      </div>
-                                      <div>
-                                        <div style={LABEL_STYLE}>Data de aplicação</div>
-                                        <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                                          type="date"
-                                          value={insumoForm.data_aplicacao}
-                                          onChange={e => setInsumoForm(f => ({ ...f, data_aplicacao: e.target.value }))} />
-                                      </div>
-                                    </div>
-                                    <div style={{ padding: '14px 20px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                      <button onClick={() => setInsumoDrawer(false)} style={{ padding: '8px 16px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-                                      <button onClick={() => handleSaveInsumo(prod.id)} disabled={insumoSaving}
-                                        style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: insumoSaving ? '#d4956f' : '#B95B37', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: insumoSaving ? 'not-allowed' : 'pointer' }}>
-                                        {insumoSaving ? 'Salvando…' : 'Salvar'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          )}
-
-                          {/* HISTÓRICO */}
-                          {expandSubTab === 'historico' && (
-                            <div>
-                              {(fieldHistory[prod.id] ?? []).length === 0 ? (
-                                <p style={{ fontSize: '13px', color: '#878C91', textAlign: 'center', padding: '16px 0' }}>Nenhuma alteração registrada.</p>
-                              ) : (
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                                  <thead>
-                                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                      {['Campo', 'Antes', 'Depois', 'Data'].map(h => (
-                                        <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '11px', fontWeight: 700, color: '#878C91', textTransform: 'uppercase' }}>{h}</th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(fieldHistory[prod.id] ?? []).map(h => (
-                                      <tr key={h.id} style={{ borderBottom: '1px solid var(--color-border-subtle)' }}>
-                                        <td style={{ padding: '7px 8px', fontWeight: 600 }}>{h.field_name}</td>
-                                        <td style={{ padding: '7px 8px', color: '#dc2626' }}>{h.old_value ?? '—'}</td>
-                                        <td style={{ padding: '7px 8px', color: '#16a34a' }}>{h.new_value ?? '—'}</td>
-                                        <td style={{ padding: '7px 8px', color: '#878C91' }}>{new Date(h.changed_at).toLocaleDateString('pt-BR')}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </>
             )
-          })}
+          })()}
         </div>
       )}
 

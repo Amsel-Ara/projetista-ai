@@ -610,7 +610,7 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a', marginBottom: 4 }}>
-                      🏡 {sheetProp?.nome}
+                      {sheetProp?.nome}
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {sheetProp?.car_status && (
