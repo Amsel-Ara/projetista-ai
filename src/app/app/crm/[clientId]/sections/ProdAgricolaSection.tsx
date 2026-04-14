@@ -455,108 +455,84 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
           <p style={{ fontSize: '12px', color: '#878C91' }}>Adicione uma atividade para a safra {selectedSafra}.</p>
         </div>
       ) : (
-        <div style={{ position: 'relative', minHeight: '300px' }}>
+        <div>
           {/* Card list */}
           {filteredProds.map(prod => (
-            <div
-              key={prod.id}
-              onClick={() => {
-                setExpandedId(expandedId === prod.id ? null : prod.id)
-                setExpandSubTab('dados')
-              }}
-              style={{
-                background: 'white',
-                border: '1px solid #ebe9e5',
-                borderRadius: '10px',
-                padding: '14px 16px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                marginBottom: '10px',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#B95B37'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(185,91,55,0.12)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#ebe9e5'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a' }}>{prod.atividade}</div>
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
-                  {prod.property_nome && <span>{prod.property_nome}</span>}
-                  {prod.area_ha && <span> · {prod.area_ha} ha</span>}
-                  {prod.talhao_nome && <span> · {prod.talhao_nome}</span>}
+            <div key={prod.id} style={{ marginBottom: '10px' }}>
+              {/* Card */}
+              <div
+                onClick={() => {
+                  setExpandedId(expandedId === prod.id ? null : prod.id)
+                  setExpandSubTab('dados')
+                }}
+                style={{
+                  background: 'white',
+                  border: expandedId === prod.id ? '1.5px solid #B95B37' : '1px solid #ebe9e5',
+                  borderRadius: expandedId === prod.id ? '10px 10px 0 0' : '10px',
+                  borderBottom: expandedId === prod.id ? 'none' : undefined,
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a' }}>{prod.atividade}</div>
+                  <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                    {prod.property_nome && <span>{prod.property_nome}</span>}
+                    {prod.area_ha && <span> · {prod.area_ha} ha</span>}
+                    {prod.talhao_nome && <span> · {prod.talhao_nome}</span>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                  {/* Edit button */}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      setEditingProd(prod.id)
+                      setProdForm({
+                        atividade: prod.atividade,
+                        safra: prod.safra ?? getDefaultSafra(),
+                        property_id: prod.property_id,
+                        talhao_id: prod.talhao_id ?? '',
+                        area_ha: prod.area_ha?.toString() ?? '',
+                        tipo_cultivo: prod.tipo_cultivo ?? '',
+                        production_type: prod.production_type ?? '',
+                        irrigacao: prod.irrigacao,
+                      })
+                      setDrawerOpen(true)
+                    }}
+                    style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
+                  >✏ Editar</button>
+                  {/* Delete button */}
+                  <button
+                    onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
+                    style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
+                  >×</button>
+                  {/* Chevron */}
+                  <span style={{
+                    fontSize: '18px',
+                    color: expandedId === prod.id ? '#B95B37' : '#bbb',
+                    flexShrink: 0,
+                    display: 'inline-block',
+                    transform: expandedId === prod.id ? 'rotate(90deg)' : 'none',
+                    transition: 'transform 0.2s',
+                  }}>›</span>
                 </div>
               </div>
-              <span style={{ fontSize: '18px', color: '#bbb', flexShrink: 0 }}>›</span>
-            </div>
-          ))}
 
-          {/* Bottom sheet */}
-          {expandedId && (() => {
-            const prod = filteredProds.find(p => p.id === expandedId)
-            if (!prod) return null
-            return (
-              <>
-                {/* Backdrop */}
-                <div
-                  onClick={() => setExpandedId(null)}
-                  style={{ position: 'absolute', inset: 0, background: 'rgba(30,28,26,0.4)', zIndex: 10, borderRadius: '10px' }}
-                />
-                {/* Sheet */}
+              {/* Inline accordion */}
+              {expandedId === prod.id && (
                 <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  height: '93%', background: 'white',
-                  borderRadius: '18px 18px 0 0', zIndex: 20,
-                  display: 'flex', flexDirection: 'column',
-                  boxShadow: '0 -4px 32px rgba(0,0,0,0.18)',
+                  background: 'white',
+                  border: '1.5px solid #B95B37',
+                  borderTop: '1px solid #f3f4f6',
+                  borderRadius: '0 0 10px 10px',
                 }}>
-                  {/* Drag handle */}
-                  <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '12px', paddingBottom: '8px', flexShrink: 0 }}>
-                    <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d0ce' }} />
-                  </div>
-                  {/* Header */}
-                  <div style={{ padding: '0 20px 14px', flexShrink: 0, borderBottom: '1px solid #ebe9e5', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a', marginBottom: 2 }}>{prod.atividade}</div>
-                      <div style={{ fontSize: '12px', color: '#888' }}>
-                        {prod.property_nome && <span>{prod.property_nome}</span>}
-                        {prod.area_ha && <span> · {prod.area_ha} ha</span>}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                      {/* Edit button */}
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          setEditingProd(prod.id)
-                          setProdForm({
-                            atividade: prod.atividade,
-                            safra: prod.safra ?? getDefaultSafra(),
-                            property_id: prod.property_id,
-                            talhao_id: prod.talhao_id ?? '',
-                            area_ha: prod.area_ha?.toString() ?? '',
-                            tipo_cultivo: prod.tipo_cultivo ?? '',
-                            production_type: prod.production_type ?? '',
-                            irrigacao: prod.irrigacao,
-                          })
-                          setDrawerOpen(true)
-                        }}
-                        style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
-                      >✏ Editar</button>
-                      {/* Delete button */}
-                      <button
-                        onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
-                        style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
-                      >×</button>
-                      {/* Close */}
-                      <button
-                        onClick={() => setExpandedId(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#888', padding: '4px', lineHeight: 1 }}
-                      >×</button>
-                    </div>
-                  </div>
                   {/* Sub-tab bar */}
-                  <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                  <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', overflowX: 'auto', scrollbarWidth: 'none' }}>
                     {(['dados', 'custos', 'receitas', 'insumos', 'praticas', 'historico'] as ProdSubTab[]).map(tab => (
                       <button key={tab} onClick={() => setExpandSubTab(tab)} style={{
                         flexShrink: 0, padding: '10px 18px', border: 'none',
@@ -570,8 +546,8 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
                       </button>
                     ))}
                   </div>
-                  {/* Scrollable content */}
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#f9f8f6' }}>
+                  {/* Content */}
+                  <div style={{ padding: '20px 24px' }}>
                     {subLoading ? (
                       <div style={{ textAlign: 'center', padding: '20px', color: '#888', fontSize: '13px' }}>Carregando…</div>
                     ) : (
@@ -928,9 +904,9 @@ export function ProdAgricolaSection({ clientId, organizationId }: ProdAgricolaSe
                     )}
                   </div>
                 </div>
-              </>
-            )
-          })()}
+              )}
+            </div>
+          ))}
         </div>
       )}
 

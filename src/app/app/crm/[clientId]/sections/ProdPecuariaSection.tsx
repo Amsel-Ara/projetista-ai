@@ -486,127 +486,101 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
           <p style={{ fontSize: '12px', color: '#878C91' }}>Adicione uma atividade pecuária para este cliente.</p>
         </div>
       ) : (
-        <div style={{ position: 'relative', minHeight: '300px' }}>
+        <div>
           {/* Card list */}
           {productions.map(prod => {
             const speciesLabel = prod.species_type ? (SPECIES_LABELS[prod.species_type] ?? prod.species_type) : 'Espécie não definida'
             return (
-              <div
-                key={prod.id}
-                onClick={() => {
-                  setExpandedId(expandedId === prod.id ? null : prod.id)
-                  setExpandSubTab('dados')
-                }}
-                style={{
-                  background: 'white',
-                  border: '1px solid #ebe9e5',
-                  borderRadius: '10px',
-                  padding: '14px 16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  marginBottom: '10px',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#B95B37'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(185,91,55,0.12)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#ebe9e5'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a' }}>{speciesLabel}</div>
-                  <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
-                    {prod.property_nome && <span>{prod.property_nome}</span>}
-                    {prod.qtd_total && <span> · {prod.qtd_total.toLocaleString('pt-BR')} animais</span>}
+              <div key={prod.id} style={{ marginBottom: '10px' }}>
+                {/* Card */}
+                <div
+                  onClick={() => {
+                    setExpandedId(expandedId === prod.id ? null : prod.id)
+                    setExpandSubTab('dados')
+                  }}
+                  style={{
+                    background: 'white',
+                    border: expandedId === prod.id ? '1.5px solid #B95B37' : '1px solid #ebe9e5',
+                    borderRadius: expandedId === prod.id ? '10px 10px 0 0' : '10px',
+                    borderBottom: expandedId === prod.id ? 'none' : undefined,
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a' }}>{speciesLabel}</div>
+                    <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                      {prod.property_nome && <span>{prod.property_nome}</span>}
+                      {prod.qtd_total && <span> · {prod.qtd_total.toLocaleString('pt-BR')} animais</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                    {/* Edit button */}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        setEditingProd(prod.id)
+                        setProdForm({
+                          species_type: prod.species_type ?? 'bovino_corte',
+                          property_id: prod.property_id ?? '',
+                          talhao_id: prod.talhao_id ?? '',
+                          qtd_total: prod.qtd_total?.toString() ?? '',
+                          qtd_vacas: prod.qtd_vacas?.toString() ?? '',
+                          qtd_touros: prod.qtd_touros?.toString() ?? '',
+                          qtd_novilhas: prod.qtd_novilhas?.toString() ?? '',
+                          qtd_bezerros: prod.qtd_bezerros?.toString() ?? '',
+                          municipio_ibge_code: prod.municipio_ibge_code ?? '',
+                        })
+                        setDrawerOpen(true)
+                      }}
+                      style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
+                    >✏ Editar</button>
+                    {/* Delete button */}
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
+                      style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
+                    >×</button>
+                    {/* Chevron */}
+                    <span style={{
+                      fontSize: '18px',
+                      color: expandedId === prod.id ? '#B95B37' : '#bbb',
+                      flexShrink: 0,
+                      display: 'inline-block',
+                      transform: expandedId === prod.id ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.2s',
+                    }}>›</span>
                   </div>
                 </div>
-                <span style={{ fontSize: '18px', color: '#bbb', flexShrink: 0 }}>›</span>
-              </div>
-            )
-          })}
 
-          {/* Bottom sheet */}
-          {expandedId && (() => {
-            const prod = productions.find(p => p.id === expandedId)
-            if (!prod) return null
-            const speciesLabel = prod.species_type ? (SPECIES_LABELS[prod.species_type] ?? prod.species_type) : 'Espécie não definida'
-            return (
-              <>
-                {/* Backdrop */}
-                <div
-                  onClick={() => setExpandedId(null)}
-                  style={{ position: 'absolute', inset: 0, background: 'rgba(30,28,26,0.4)', zIndex: 10, borderRadius: '10px' }}
-                />
-                {/* Sheet */}
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  height: '93%', background: 'white',
-                  borderRadius: '18px 18px 0 0', zIndex: 20,
-                  display: 'flex', flexDirection: 'column',
-                  boxShadow: '0 -4px 32px rgba(0,0,0,0.18)',
-                }}>
-                  {/* Drag handle */}
-                  <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '12px', paddingBottom: '8px', flexShrink: 0 }}>
-                    <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d0ce' }} />
-                  </div>
-                  {/* Header */}
-                  <div style={{ padding: '0 20px 14px', flexShrink: 0, borderBottom: '1px solid #ebe9e5', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a', marginBottom: 2 }}>{speciesLabel}</div>
-                      <div style={{ fontSize: '12px', color: '#888' }}>
-                        {prod.property_nome && <span>{prod.property_nome}</span>}
-                        {prod.qtd_total && <span> · {prod.qtd_total.toLocaleString('pt-BR')} animais</span>}
-                      </div>
+                {/* Inline accordion */}
+                {expandedId === prod.id && (
+                  <div style={{
+                    background: 'white',
+                    border: '1.5px solid #B95B37',
+                    borderTop: '1px solid #f3f4f6',
+                    borderRadius: '0 0 10px 10px',
+                  }}>
+                    {/* Sub-tab bar */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                      {(['dados', 'indices', 'custos', 'receitas', 'insumos', 'historico'] as PecSubTab[]).map(tab => (
+                        <button key={tab} onClick={() => setExpandSubTab(tab)} style={{
+                          flexShrink: 0, padding: '10px 18px', border: 'none',
+                          borderBottom: expandSubTab === tab ? '2.5px solid #B95B37' : '2.5px solid transparent',
+                          marginBottom: -1, background: 'none', cursor: 'pointer', fontSize: 13,
+                          fontWeight: expandSubTab === tab ? 700 : 500,
+                          color: expandSubTab === tab ? '#1e1c1a' : '#999',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {tab === 'indices' ? 'Índices' : tab === 'historico' ? 'Histórico' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </button>
+                      ))}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                      {/* Edit button */}
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          setEditingProd(prod.id)
-                          setProdForm({
-                            species_type: prod.species_type ?? 'bovino_corte',
-                            property_id: prod.property_id ?? '',
-                            talhao_id: prod.talhao_id ?? '',
-                            qtd_total: prod.qtd_total?.toString() ?? '',
-                            qtd_vacas: prod.qtd_vacas?.toString() ?? '',
-                            qtd_touros: prod.qtd_touros?.toString() ?? '',
-                            qtd_novilhas: prod.qtd_novilhas?.toString() ?? '',
-                            qtd_bezerros: prod.qtd_bezerros?.toString() ?? '',
-                            municipio_ibge_code: prod.municipio_ibge_code ?? '',
-                          })
-                          setDrawerOpen(true)
-                        }}
-                        style={{ padding: '6px 12px', border: '1px solid #ebe9e5', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#555' }}
-                      >✏ Editar</button>
-                      {/* Delete button */}
-                      <button
-                        onClick={e => { e.stopPropagation(); handleDeleteProd(prod.id) }}
-                        style={{ padding: '6px 10px', border: '1px solid #fecaca', borderRadius: '8px', background: 'white', fontSize: '12px', cursor: 'pointer', color: '#dc2626' }}
-                      >×</button>
-                      {/* Close */}
-                      <button
-                        onClick={() => setExpandedId(null)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#888', padding: '4px', lineHeight: 1 }}
-                      >×</button>
-                    </div>
-                  </div>
-                  {/* Sub-tab bar */}
-                  <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' }}>
-                    {(['dados', 'indices', 'custos', 'receitas', 'insumos', 'historico'] as PecSubTab[]).map(tab => (
-                      <button key={tab} onClick={() => setExpandSubTab(tab)} style={{
-                        flexShrink: 0, padding: '10px 18px', border: 'none',
-                        borderBottom: expandSubTab === tab ? '2.5px solid #B95B37' : '2.5px solid transparent',
-                        marginBottom: -1, background: 'none', cursor: 'pointer', fontSize: 13,
-                        fontWeight: expandSubTab === tab ? 700 : 500,
-                        color: expandSubTab === tab ? '#1e1c1a' : '#999',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {tab === 'indices' ? 'Índices' : tab === 'historico' ? 'Histórico' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Scrollable content */}
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#f9f8f6' }}>
+                    {/* Content */}
+                    <div style={{ padding: '20px 24px' }}>
                     {subLoading ? (
                       <div style={{ textAlign: 'center', padding: '20px', color: '#888', fontSize: '13px' }}>Carregando…</div>
                     ) : (
@@ -863,9 +837,10 @@ export function ProdPecuariaSection({ clientId, organizationId }: ProdPecuariaSe
                     )}
                   </div>
                 </div>
-              </>
+              )}
+              </div>
             )
-          })()}
+          })}
         </div>
       )}
 
