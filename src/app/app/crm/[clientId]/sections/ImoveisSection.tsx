@@ -473,8 +473,6 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
     e.target.value = ''
   }
 
-  const selectedProp = properties.find(p => p.id === selectedPropId)
-  const sheetProp    = sheetPropId && sheetPropId !== '__new__' ? properties.find(p => p.id === sheetPropId) ?? null : null
   const soilDetail   = soilAnalyses.find(s => s.id === soilDetailId)
   const totalLandUse = LAND_USE_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(landUseEdits[cat] || '0') || 0), 0)
 
@@ -485,7 +483,7 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '200px' }}>
+    <div>
 
       {/* Property list */}
       <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
@@ -505,6 +503,54 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
           </button>
         </div>
 
+        {/* Inline "New property" form */}
+        {sheetPropId === '__new__' && (
+          <div style={{ background: '#f9f8f6', border: '1.5px solid #B95B37', borderRadius: '10px', padding: '20px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ fontWeight: 700, fontSize: '15px', color: '#1e1c1a' }}>Novo Imóvel</div>
+              <button onClick={() => { setSheetPropId(null); setPropForm(EMPTY_PROP) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: '4px', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+              {([
+                { key: 'nirf', label: 'NIRF', placeholder: '0000000-0' },
+                { key: 'nome', label: 'Nome da propriedade', placeholder: 'Fazenda São João' },
+                { key: 'condicao_produtor', label: 'Condição do produtor', isSelect: true },
+                { key: 'atividade_principal', label: 'Atividade principal', isSelect: true },
+                { key: 'caf_dap', label: 'CAF / DAP', placeholder: 'Número CAF…' },
+              ] as { key: keyof typeof propForm; label: string; placeholder?: string; isSelect?: boolean }[]).map(({ key, label, placeholder, isSelect }) => (
+                <div key={key}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                  {isSelect ? (
+                    <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                      value={propForm[key] as string} onChange={e => setPropForm(p => ({ ...p, [key]: e.target.value }))}>
+                      <option value="">Selecionar…</option>
+                      {key === 'condicao_produtor'
+                        ? ['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)
+                        : ['Agricultura — lavoura temporária', 'Agricultura — lavoura permanente', 'Pecuária bovina', 'Suinocultura', 'Avicultura', 'Aquicultura', 'Silvicultura / SAF'].map(o => <option key={o} value={o}>{o}</option>)
+                      }
+                    </select>
+                  ) : (
+                    <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                      value={propForm[key] as string}
+                      onChange={e => setPropForm(p => ({ ...p, [key]: key === 'nirf' ? maskNIRF(e.target.value) : e.target.value }))}
+                      placeholder={placeholder} />
+                  )}
+                </div>
+              ))}
+            </div>
+            {propError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={async () => { await handlePropSave(); setSheetPropId(null) }} disabled={propSaving} className="btn-primary" style={{ opacity: propSaving ? 0.7 : 1 }}>
+                {propSaving ? 'Salvando…' : 'Adicionar imóvel'}
+              </button>
+              <button onClick={() => { setSheetPropId(null); setPropForm(EMPTY_PROP) }}
+                style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
         {propsLoading ? (
           <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
         ) : properties.length === 0 ? (
@@ -514,200 +560,76 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
             <p style={{ fontSize: '12px', lineHeight: 1.6 }}>Adicione os dados do imóvel rural do produtor.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {properties.map(p => (
-              <div
-                key={p.id}
-                onClick={() => setSheetPropId(p.id)}
-                style={{
-                  background: 'white',
-                  border: '1px solid #ebe9e5',
-                  borderRadius: '10px',
-                  padding: '14px 16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  marginBottom: '2px',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#B95B37'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(185,91,55,0.12)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#ebe9e5'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a', marginBottom: '3px' }}>{p.nome || '(sem nome)'}</div>
-                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                    {[p.municipio, p.uf].filter(Boolean).join(' — ')}
-                    {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
-                    {p.atividade_principal && ` · ${p.atividade_principal}`}
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {p.car_status && (
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: CAR_STATUS_COLOR[p.car_status]?.bg ?? '#f3f4f6', color: CAR_STATUS_COLOR[p.car_status]?.text ?? '#666' }}>
-                        CAR: {p.car_status}
-                      </span>
-                    )}
-                    {p.condicao_produtor && (
-                      <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#555' }}>
-                        {p.condicao_produtor}
-                      </span>
-                    )}
-                    {p.valor_total_terra_nua && (
-                      <span style={{ fontSize: 11, color: '#888' }}>
-                        R$ {parseFloat(p.valor_total_terra_nua).toLocaleString('pt-BR')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span style={{ color: '#bbb', fontSize: '18px', flexShrink: 0 }}>›</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Bottom sheet overlay */}
-      {sheetPropId && (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => setSheetPropId(null)}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(30,28,26,0.4)',
-              zIndex: 10,
-              borderRadius: '10px',
-            }}
-          />
-          {/* Sheet */}
-          <div style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '93%',
-            background: 'white',
-            borderRadius: '18px 18px 0 0',
-            zIndex: 20,
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 -4px 32px rgba(0,0,0,0.18)',
-          }}>
-            {/* Drag handle */}
-            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '12px', paddingBottom: '8px', flexShrink: 0 }}>
-              <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d0ce' }} />
-            </div>
-
-            {/* Sheet header */}
-            <div style={{ padding: '0 20px 16px', flexShrink: 0, borderBottom: '1px solid #ebe9e5' }}>
-              {sheetPropId === '__new__' ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a' }}>Novo Imóvel</div>
-                  <button onClick={() => setSheetPropId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: '4px', lineHeight: 1 }}>×</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a', marginBottom: 4 }}>
-                      {sheetProp?.nome}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {properties.map(prop => (
+              <div key={prop.id} style={{ marginBottom: '10px' }}>
+                {/* Card header — collapses/expands on click */}
+                <div
+                  onClick={() => setSheetPropId(sheetPropId === prop.id ? null : prop.id)}
+                  style={{
+                    background: 'white',
+                    border: sheetPropId === prop.id ? '1.5px solid #B95B37' : '1px solid #ebe9e5',
+                    borderRadius: sheetPropId === prop.id ? '10px 10px 0 0' : '10px',
+                    borderBottom: sheetPropId === prop.id ? 'none' : undefined,
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: 0,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a' }}>{prop.nome || '(sem nome)'}</div>
+                    <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>
+                      {prop.municipio && <span>{prop.municipio}{prop.uf ? `, ${prop.uf}` : ''}</span>}
+                      {prop.area_declarada_ha && <span> · {prop.area_declarada_ha} ha</span>}
+                      {prop.atividade_principal && <span> · {prop.atividade_principal}</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {sheetProp?.car_status && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: CAR_STATUS_COLOR[sheetProp.car_status]?.bg ?? '#f3f4f6', color: CAR_STATUS_COLOR[sheetProp.car_status]?.text ?? '#666' }}>
-                          CAR: {sheetProp.car_status}
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      {prop.car_status && (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: CAR_STATUS_COLOR[prop.car_status]?.bg ?? '#f3f4f6', color: CAR_STATUS_COLOR[prop.car_status]?.text ?? '#666' }}>
+                          CAR: {prop.car_status}
                         </span>
                       )}
-                      {sheetProp?.condicao_produtor && (
+                      {prop.condicao_produtor && (
                         <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#555' }}>
-                          {sheetProp.condicao_produtor}
+                          {prop.condicao_produtor}
                         </span>
-                      )}
-                      {sheetProp?.area_declarada_ha && (
-                        <span style={{ fontSize: 11, color: '#888' }}>{sheetProp.area_declarada_ha} ha</span>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => setSheetPropId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: '4px', lineHeight: 1 }}>×</button>
+                  <span style={{ fontSize: '18px', color: sheetPropId === prop.id ? '#B95B37' : '#bbb', flexShrink: 0, transform: sheetPropId === prop.id ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>›</span>
                 </div>
-              )}
-            </div>
 
-            {/* Tab bar inside sheet (only for existing properties) */}
-            {sheetPropId !== '__new__' && (
-              <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' as const }}>
-                {(['Dados', 'Talhões', 'Benfeitorias', 'Uso do Solo', 'Solo', 'Imagens'] as PropSheetTab[]).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => { setPropSheetTab(t); setPropSubTab(sheetTabToSubTab[t]) }}
-                    style={{
-                      flexShrink: 0,
-                      padding: '10px 18px',
-                      border: 'none',
-                      borderBottom: propSheetTab === t ? '2.5px solid #B95B37' : '2.5px solid transparent',
-                      marginBottom: -1,
-                      background: 'none',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: propSheetTab === t ? 700 : 500,
-                      color: propSheetTab === t ? '#1e1c1a' : '#999',
-                      whiteSpace: 'nowrap' as const,
-                    }}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Scrollable content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', background: '#f9f8f6' }}>
-              {sheetPropId === '__new__' ? (
-                /* New property form */
-                <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-                    {([
-                      { key: 'nirf', label: 'NIRF', placeholder: '0000000-0' },
-                      { key: 'nome', label: 'Nome da propriedade', placeholder: 'Fazenda São João' },
-                      { key: 'condicao_produtor', label: 'Condição do produtor', isSelect: true },
-                      { key: 'atividade_principal', label: 'Atividade principal', isSelect: true },
-                      { key: 'caf_dap', label: 'CAF / DAP', placeholder: 'Número CAF…' },
-                    ] as { key: keyof typeof propForm; label: string; placeholder?: string; isSelect?: boolean }[]).map(({ key, label, placeholder, isSelect }) => (
-                      <div key={key}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                        {isSelect ? (
-                          <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                            value={propForm[key] as string} onChange={e => setPropForm(p => ({ ...p, [key]: e.target.value }))}>
-                            <option value="">Selecionar…</option>
-                            {key === 'condicao_produtor'
-                              ? ['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)
-                              : ['Agricultura — lavoura temporária', 'Agricultura — lavoura permanente', 'Pecuária bovina', 'Suinocultura', 'Avicultura', 'Aquicultura', 'Silvicultura / SAF'].map(o => <option key={o} value={o}>{o}</option>)
-                            }
-                          </select>
-                        ) : (
-                          <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                            value={propForm[key] as string}
-                            onChange={e => setPropForm(p => ({ ...p, [key]: key === 'nirf' ? maskNIRF(e.target.value) : e.target.value }))}
-                            placeholder={placeholder} />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {propError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>}
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={async () => { await handlePropSave(); setSheetPropId(null) }} disabled={propSaving} className="btn-primary" style={{ opacity: propSaving ? 0.7 : 1 }}>
-                      {propSaving ? 'Salvando…' : 'Adicionar imóvel'}
-                    </button>
-                    <button onClick={() => { setSheetPropId(null); setPropForm(EMPTY_PROP) }}
-                      style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              ) : subDataLoading ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
-              ) : (
-              <>
+                {/* Inline expanded panel */}
+                {sheetPropId === prop.id && (
+                  <div style={{
+                    background: 'white',
+                    border: '1.5px solid #B95B37',
+                    borderTop: '1px solid #f3f4f6',
+                    borderRadius: '0 0 10px 10px',
+                  }}>
+                    {/* Sub-tab bar */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', overflowX: 'auto', scrollbarWidth: 'none' }}>
+                      {(['Dados', 'Talhões', 'Benfeitorias', 'Uso do Solo', 'Solo', 'Imagens'] as PropSheetTab[]).map(t => (
+                        <button key={t} onClick={e => { e.stopPropagation(); setPropSheetTab(t); setPropSubTab(sheetTabToSubTab[t]) }}
+                          style={{
+                            flexShrink: 0, padding: '10px 18px', border: 'none',
+                            borderBottom: propSheetTab === t ? '2.5px solid #B95B37' : '2.5px solid transparent',
+                            marginBottom: -1, background: 'none', cursor: 'pointer', fontSize: 13,
+                            fontWeight: propSheetTab === t ? 700 : 500,
+                            color: propSheetTab === t ? '#1e1c1a' : '#999',
+                            whiteSpace: 'nowrap',
+                          }}>{t}</button>
+                      ))}
+                    </div>
+                    {/* Content */}
+                    <div style={{ padding: '20px 24px', background: '#f9f8f6', borderRadius: '0 0 10px 10px' }}>
+                      {subDataLoading ? (
+                        <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
+                      ) : (
+                      <>
                 {/* ── Dados ── */}
                 {propSubTab === 'dados' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1255,12 +1177,16 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
                     )}
                   </div>
                 )}
-              </>
-              )}
-            </div>
+                      </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </>
-      )}
+        )}
+      </div>
 
       {/* Benfeitoria drawer */}
       {benfeitDrawerOpen && (
