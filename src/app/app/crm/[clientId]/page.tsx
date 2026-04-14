@@ -1172,14 +1172,20 @@ export default function ClientProfilePage() {
       {/* TAB 3 — CADASTRO                                          */}
       {/* ══════════════════════════════════════════════════════════ */}
       {tab === 'cadastro' && (
-        <div>
-          {/* Horizontal cadastro section nav */}
+        <div style={{
+          background: 'white',
+          borderRadius: '14px',
+          border: '1px solid #ebe9e5',
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        }}>
+          {/* Tab bar lives inside the card, no bottom margin */}
           <div style={{
             display: 'flex',
             overflowX: 'auto',
-            borderBottom: '1px solid var(--color-border)',
-            marginBottom: '24px',
+            borderBottom: '1px solid #ebe9e5',
             scrollbarWidth: 'none' as const,
+            background: 'white',
           }}>
             {CADASTRO_NAV.map(({ id, label }) => {
               const active = cadastroSection === id
@@ -1190,14 +1196,15 @@ export default function ClientProfilePage() {
                   onClick={() => setCadastroSection(id)}
                   style={{
                     flexShrink: 0,
-                    padding: '10px 20px',
+                    padding: '12px 20px',
                     border: 'none',
-                    borderBottom: active ? '2px solid var(--brand-orange)' : '2px solid transparent',
+                    borderBottom: active ? '2.5px solid #B95B37' : '2.5px solid transparent',
+                    marginBottom: -1,
                     background: 'none',
                     cursor: 'pointer',
                     fontSize: '13px',
                     fontWeight: active ? 700 : 500,
-                    color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    color: active ? '#1e1c1a' : '#999',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
@@ -1217,37 +1224,38 @@ export default function ClientProfilePage() {
               )
             })}
           </div>
-
-          {/* Section content */}
-          {cadastroSection === 'identificacao' && (
-            <IdentificacaoSection
-              clientId={clientId as string}
-              organizationId={orgId}
-              onClientUpdate={(patch) => setClientData(prev => ({ ...prev, ...(patch as Partial<ClientData>) }))}
-            />
-          )}
-          {cadastroSection === 'imoveis' && (
-            <ImoveisSection
-              clientId={clientId as string}
-              organizationId={orgId}
-              onPropertyCountChange={setPropCount}
-            />
-          )}
-          {cadastroSection === 'semoventes' && (
-            <SemovEntesSection clientId={clientId as string} organizationId={orgId} />
-          )}
-          {cadastroSection === 'bens_moveis' && (
-            <BensMoveisSection clientId={clientId as string} organizationId={orgId} />
-          )}
-          {cadastroSection === 'prod_agricola' && (
-            <ProdAgricolaSection clientId={clientId as string} organizationId={orgId} />
-          )}
-          {cadastroSection === 'prod_pecuaria' && (
-            <ProdPecuariaSection clientId={clientId as string} organizationId={orgId} />
-          )}
-          {cadastroSection === 'financeiro' && (
-            <FinanceiroSection clientId={clientId as string} organizationId={orgId} />
-          )}
+          {/* Content area with slightly grey background */}
+          <div style={{ background: '#f9f8f6', padding: '24px' }}>
+            {cadastroSection === 'identificacao' && (
+              <IdentificacaoSection
+                clientId={clientId as string}
+                organizationId={orgId}
+                onClientUpdate={(patch) => setClientData(prev => ({ ...prev, ...(patch as Partial<ClientData>) }))}
+              />
+            )}
+            {cadastroSection === 'imoveis' && (
+              <ImoveisSection
+                clientId={clientId as string}
+                organizationId={orgId}
+                onPropertyCountChange={setPropCount}
+              />
+            )}
+            {cadastroSection === 'semoventes' && (
+              <SemovEntesSection clientId={clientId as string} organizationId={orgId} />
+            )}
+            {cadastroSection === 'bens_moveis' && (
+              <BensMoveisSection clientId={clientId as string} organizationId={orgId} />
+            )}
+            {cadastroSection === 'prod_agricola' && (
+              <ProdAgricolaSection clientId={clientId as string} organizationId={orgId} />
+            )}
+            {cadastroSection === 'prod_pecuaria' && (
+              <ProdPecuariaSection clientId={clientId as string} organizationId={orgId} />
+            )}
+            {cadastroSection === 'financeiro' && (
+              <FinanceiroSection clientId={clientId as string} organizationId={orgId} />
+            )}
+          </div>
         </div>
       )}
 

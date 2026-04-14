@@ -199,16 +199,48 @@ export default function SemovEntesSection({ clientId, organizationId }: SemovEnt
         )}
       </div>
 
-      {/* Add/Edit drawer */}
+      {/* Add/Edit modal */}
       {drawerOpen && (
         <>
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(1,2,5,0.45)', zIndex: 200 }} onClick={() => setDrawerOpen(false)} />
-          <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '440px', background: '#fff', zIndex: 201, display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 48px rgba(0,0,0,0.16)', transform: 'translateX(0)', transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: '17px', color: '#010205', fontFamily: 'Manrope, sans-serif' }}>{editingId ? 'Editar Semovente' : 'Novo Semovente'}</div>
-              <button onClick={() => setDrawerOpen(false)} style={{ border: 'none', background: 'var(--color-surface-2)', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', color: '#878C91', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          {/* Backdrop */}
+          <div
+            onClick={() => { setDrawerOpen(false); setEditingId(null) }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(30,28,26,0.45)',
+              zIndex: 200,
+            }}
+          />
+          {/* Modal */}
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '100%',
+            maxWidth: '560px',
+            maxHeight: '90vh',
+            background: 'white',
+            borderRadius: '16px',
+            zIndex: 201,
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 8px 48px rgba(0,0,0,0.22)',
+            overflow: 'hidden',
+          }}>
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #ebe9e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a' }}>
+                {editingId ? 'Editar Semovente' : 'Novo Semovente'}
+              </div>
+              <button onClick={() => { setDrawerOpen(false); setEditingId(null) }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: '4px' }}>
+                ×
+              </button>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Modal body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>Espécie / Tipo</div>
                 <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }} list="especies-list"
@@ -273,9 +305,14 @@ export default function SemovEntesSection({ clientId, organizationId }: SemovEnt
                   value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="…" />
               </div>
             </div>
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-border)', display: 'flex', gap: '10px', justifyContent: 'flex-end', flexShrink: 0 }}>
-              <button onClick={() => setDrawerOpen(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: saving ? '#d4956f' : '#B95B37', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #ebe9e5', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
+              <button onClick={() => { setDrawerOpen(false); setEditingId(null) }}
+                style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #ebe9e5', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#555' }}>
+                Cancelar
+              </button>
+              <button onClick={handleSave} disabled={saving}
+                style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#B95B37', color: 'white', cursor: saving ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Salvando…' : 'Salvar'}
               </button>
             </div>

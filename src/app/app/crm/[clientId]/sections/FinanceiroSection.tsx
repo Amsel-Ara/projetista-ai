@@ -246,16 +246,32 @@ export default function FinanceiroSection({ clientId, organizationId }: Financei
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Mini sub-nav */}
-      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-        {(['contas', 'dividas', 'gastos_gerais', 'perfil'] as FinTab[]).map(id => (
-          <button key={id} onClick={() => setFinTab(id)} style={{
-            padding: '8px 16px', borderRadius: '8px', border: 'none',
-            background: finTab === id ? '#010205' : '#fff',
-            color:      finTab === id ? '#fff'    : '#878C91',
-            fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            {tabLabel[id]}
+      <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', marginBottom: '20px', overflowX: 'auto', scrollbarWidth: 'none' as const }}>
+        {[
+          { id: 'contas',        label: 'Contas Bancárias' },
+          { id: 'dividas',       label: 'Dívidas' },
+          { id: 'gastos_gerais', label: 'Gastos Gerais' },
+          { id: 'perfil',        label: 'Perfil Financeiro' },
+        ].map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => setFinTab(id as FinTab)}
+            style={{
+              flexShrink: 0,
+              padding: '9px 18px',
+              fontSize: 13,
+              fontWeight: finTab === id ? 700 : 500,
+              color: finTab === id ? '#1e1c1a' : '#999',
+              border: 'none',
+              borderBottom: finTab === id ? '2.5px solid #B95B37' : '2.5px solid transparent',
+              marginBottom: -1,
+              background: 'transparent',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap' as const,
+            }}
+          >
+            {label}
           </button>
         ))}
       </div>

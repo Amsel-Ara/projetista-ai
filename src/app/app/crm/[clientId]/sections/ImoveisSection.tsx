@@ -88,6 +88,15 @@ const LAND_USE_CATEGORIES = [
 ]
 
 type PropSubTab = 'dados' | 'talhoes' | 'benfeitorias' | 'uso_solo' | 'solo' | 'imagens'
+type PropSheetTab = 'Dados' | 'Talhões' | 'Benfeitorias' | 'Uso do Solo' | 'Solo' | 'Imagens'
+
+const CAR_STATUS_COLOR: Record<string, { bg: string; text: string }> = {
+  'Ativo':      { bg: '#f0fdf4', text: '#16a34a' },
+  'Em análise': { bg: '#eff6ff', text: '#2563eb' },
+  'Pendente':   { bg: '#fffbeb', text: '#d97706' },
+  'Suspenso':   { bg: '#fef2f2', text: '#dc2626' },
+  'Cancelado':  { bg: '#f3f4f6', text: '#6b7280' },
+}
 
 export default function ImoveisSection({ clientId, organizationId, onPropertyCountChange }: ImoveisSectionProps) {
   const supabase = createClient()
@@ -102,6 +111,10 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
   const [propError,      setPropError]      = useState('')
   const [deletePropId,   setDeletePropId]   = useState<string | null>(null)
   const [deletingProp,   setDeletingProp]   = useState(false)
+
+  // Bottom sheet state
+  const [sheetPropId,      setSheetPropId]       = useState<string | null>(null)
+  const [propSheetTab,     setPropSheetTab]      = useState<PropSheetTab>('Dados')
 
   // Sub-tab state
   const [selectedPropId,   setSelectedPropId]   = useState<string | null>(null)
@@ -193,6 +206,17 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
         setPropsLoading(false)
       })
   }, [clientId])
+
+  // Sync sheet open/close → selectedPropId + reset tab
+  useEffect(() => {
+    setPropSheetTab('Dados')
+    if (sheetPropId && sheetPropId !== '__new__') {
+      setSelectedPropId(sheetPropId)
+      setPropSubTab('dados')
+    } else if (!sheetPropId) {
+      setSelectedPropId(null)
+    }
+  }, [sheetPropId])
 
   // Load sub-data when property is selected
   useEffect(() => {
@@ -450,11 +474,18 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
   }
 
   const selectedProp = properties.find(p => p.id === selectedPropId)
+  const sheetProp    = sheetPropId && sheetPropId !== '__new__' ? properties.find(p => p.id === sheetPropId) ?? null : null
   const soilDetail   = soilAnalyses.find(s => s.id === soilDetailId)
   const totalLandUse = LAND_USE_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(landUseEdits[cat] || '0') || 0), 0)
 
+  // Map PropSheetTab → PropSubTab
+  const sheetTabToSubTab: Record<PropSheetTab, PropSubTab> = {
+    'Dados': 'dados', 'Talhões': 'talhoes', 'Benfeitorias': 'benfeitorias',
+    'Uso do Solo': 'uso_solo', 'Solo': 'solo', 'Imagens': 'imagens',
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div style={{ position: 'relative', minHeight: '200px' }}>
 
       {/* Property list */}
       <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
@@ -468,9 +499,9 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
             )}
           </div>
           <button
-            onClick={() => { setPropForm(EMPTY_PROP); setEditPropId(null); setPropError(''); setPropFormOpen(true) }}
+            onClick={() => { setPropForm(EMPTY_PROP); setEditPropId(null); setPropError(''); setSheetPropId('__new__') }}
             style={{ padding: '8px 16px', border: 'none', borderRadius: '8px', background: '#B95B37', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-            + Adicionar Imóvel
+            + Novo Imóvel
           </button>
         </div>
 
@@ -484,120 +515,198 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {properties.map(p => {
-              const isSelected = selectedPropId === p.id
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => { setSelectedPropId(isSelected ? null : p.id); setPropSubTab('dados') }}
-                  style={{
-                    border: `1.5px solid ${isSelected ? '#B95B37' : 'var(--color-border)'}`,
-                    borderRadius: '10px', padding: '14px 16px', cursor: 'pointer',
-                    background: isSelected ? '#FDF0EB' : '#fff',
-                    transition: 'border-color 0.15s, background 0.15s',
-                  }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '4px' }}>{p.nome || '(sem nome)'}</div>
-                      <div style={{ fontSize: '12px', color: '#878C91' }}>
-                        {[p.municipio, p.uf].filter(Boolean).join(' — ')}
-                        {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
-                        {p.nirf && ` · NIRF: ${p.nirf}`}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                      <button
-                        onClick={() => { setPropForm({ nirf: p.nirf, nome: p.nome, municipio: p.municipio, uf: p.uf, area_declarada_ha: p.area_declarada_ha, condicao_produtor: p.condicao_produtor, atividade_principal: p.atividade_principal, caf_dap: p.caf_dap, matricula: p.matricula, distrito_bairro: p.distrito_bairro, local_registro: p.local_registro, participacao_pct: p.participacao_pct, cessao_terceiros: p.cessao_terceiros, situacao_imovel: p.situacao_imovel, estado_conservacao: p.estado_conservacao, gravame: p.gravame, capacidade_uso_solo: p.capacidade_uso_solo, valor_por_hectare: p.valor_por_hectare, valor_total_terra_nua: p.valor_total_terra_nua, outros_proprietarios: p.outros_proprietarios, latitude: p.latitude, longitude: p.longitude, municipio_ibge_code: p.municipio_ibge_code, clima_zona: p.clima_zona, car_numero: p.car_numero, car_status: p.car_status, car_area_ha: p.car_area_ha, car_data_inscricao: p.car_data_inscricao, ccir: p.ccir, ccir_situacao: p.ccir_situacao, ccir_area_ha: p.ccir_area_ha }); setEditPropId(p.id); setPropError(''); setPropFormOpen(true) }}
-                        style={{ padding: '5px 12px', border: '1.5px solid var(--color-border)', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
-                        Editar
-                      </button>
-                      <button onClick={() => setDeletePropId(p.id)}
-                        style={{ padding: '5px 12px', border: '1.5px solid #fecaca', borderRadius: '7px', background: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', color: '#dc2626' }}>
-                        Excluir
-                      </button>
-                    </div>
+            {properties.map(p => (
+              <div
+                key={p.id}
+                onClick={() => setSheetPropId(p.id)}
+                style={{
+                  background: 'white',
+                  border: '1px solid #ebe9e5',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  marginBottom: '2px',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#B95B37'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(185,91,55,0.12)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#ebe9e5'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none' }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e1c1a', marginBottom: '3px' }}>{p.nome || '(sem nome)'}</div>
+                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>
+                    {[p.municipio, p.uf].filter(Boolean).join(' — ')}
+                    {p.area_declarada_ha && ` · ${p.area_declarada_ha} ha`}
+                    {p.atividade_principal && ` · ${p.atividade_principal}`}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {p.car_status && (
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: CAR_STATUS_COLOR[p.car_status]?.bg ?? '#f3f4f6', color: CAR_STATUS_COLOR[p.car_status]?.text ?? '#666' }}>
+                        CAR: {p.car_status}
+                      </span>
+                    )}
+                    {p.condicao_produtor && (
+                      <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#555' }}>
+                        {p.condicao_produtor}
+                      </span>
+                    )}
+                    {p.valor_total_terra_nua && (
+                      <span style={{ fontSize: 11, color: '#888' }}>
+                        R$ {parseFloat(p.valor_total_terra_nua).toLocaleString('pt-BR')}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )
-            })}
+                <span style={{ color: '#bbb', fontSize: '18px', flexShrink: 0 }}>›</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Add / Edit form */}
-      {propFormOpen && (
-        <div style={{ background: '#fff', borderRadius: '14px', padding: '24px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', border: '1.5px solid #B95B37' }}>
-          <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '14px', color: '#010205', marginBottom: '20px' }}>
-            {editPropId ? 'Editar Imóvel' : 'Novo Imóvel Rural'}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-            {([
-              { key: 'nirf', label: 'NIRF', placeholder: '0000000-0' },
-              { key: 'nome', label: 'Nome da propriedade', placeholder: 'Fazenda São João' },
-              { key: 'condicao_produtor', label: 'Condição do produtor', isSelect: true },
-              { key: 'atividade_principal', label: 'Atividade principal', isSelect: true },
-              { key: 'caf_dap', label: 'CAF / DAP', placeholder: 'Número CAF…' },
-            ] as { key: keyof typeof propForm; label: string; placeholder?: string; isSelect?: boolean }[]).map(({ key, label, placeholder, isSelect }) => (
-              <div key={key}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
-                {isSelect ? (
-                  <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={propForm[key] as string} onChange={e => setPropForm(p => ({ ...p, [key]: e.target.value }))}>
-                    <option value="">Selecionar…</option>
-                    {key === 'condicao_produtor'
-                      ? ['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)
-                      : ['Agricultura — lavoura temporária', 'Agricultura — lavoura permanente', 'Pecuária bovina', 'Suinocultura', 'Avicultura', 'Aquicultura', 'Silvicultura / SAF'].map(o => <option key={o} value={o}>{o}</option>)
-                    }
-                  </select>
-                ) : (
-                  <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={propForm[key] as string}
-                    onChange={e => setPropForm(p => ({ ...p, [key]: key === 'nirf' ? maskNIRF(e.target.value) : e.target.value }))}
-                    placeholder={placeholder} />
-                )}
-              </div>
-            ))}
-          </div>
-          {propError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>}
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={handlePropSave} disabled={propSaving} className="btn-primary" style={{ opacity: propSaving ? 0.7 : 1 }}>
-              {propSaving ? 'Salvando…' : editPropId ? 'Salvar alterações' : 'Adicionar imóvel'}
-            </button>
-            <button onClick={() => { setPropFormOpen(false); setEditPropId(null); setPropForm(EMPTY_PROP) }}
-              style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Sub-tab area — shown when a property is selected */}
-      {selectedPropId && selectedProp && (
-        <div style={{ background: '#fff', borderRadius: '14px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-          {/* Sub-tab header */}
-          <div style={{ borderBottom: '1px solid var(--color-border)', padding: '0 24px', display: 'flex', gap: 0, overflowX: 'auto' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#010205', padding: '14px 16px 14px 0', borderRight: '1px solid var(--color-border)', marginRight: '8px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {selectedProp.nome || '(sem nome)'}
+      {/* Bottom sheet overlay */}
+      {sheetPropId && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setSheetPropId(null)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(30,28,26,0.4)',
+              zIndex: 10,
+              borderRadius: '10px',
+            }}
+          />
+          {/* Sheet */}
+          <div style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '93%',
+            background: 'white',
+            borderRadius: '18px 18px 0 0',
+            zIndex: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 -4px 32px rgba(0,0,0,0.18)',
+          }}>
+            {/* Drag handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '12px', paddingBottom: '8px', flexShrink: 0 }}>
+              <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d0ce' }} />
             </div>
-            {(['dados', 'talhoes', 'benfeitorias', 'uso_solo', 'solo', 'imagens'] as PropSubTab[]).map(id => {
-              const labels: Record<PropSubTab, string> = { dados: 'Dados', talhoes: 'Talhões', benfeitorias: 'Benfeitorias', uso_solo: 'Uso do Solo', solo: 'Solo', imagens: 'Imagens' }
-              const active = propSubTab === id
-              return (
-                <button key={id} onClick={() => setPropSubTab(id)} style={{
-                  padding: '14px 16px', border: 'none', borderBottom: active ? '2px solid #B95B37' : '2px solid transparent',
-                  background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: active ? 700 : 500,
-                  color: active ? '#010205' : '#878C91', whiteSpace: 'nowrap', flexShrink: 0,
-                }}>
-                  {labels[id]}
-                </button>
-              )
-            })}
-          </div>
 
-          <div style={{ padding: '24px' }}>
-            {subDataLoading ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
-            ) : (
+            {/* Sheet header */}
+            <div style={{ padding: '0 20px 16px', flexShrink: 0, borderBottom: '1px solid #ebe9e5' }}>
+              {sheetPropId === '__new__' ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a' }}>Novo Imóvel</div>
+                  <button onClick={() => setSheetPropId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: '4px', lineHeight: 1 }}>×</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '17px', color: '#1e1c1a', marginBottom: 4 }}>
+                      🏡 {sheetProp?.nome}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {sheetProp?.car_status && (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 99, background: CAR_STATUS_COLOR[sheetProp.car_status]?.bg ?? '#f3f4f6', color: CAR_STATUS_COLOR[sheetProp.car_status]?.text ?? '#666' }}>
+                          CAR: {sheetProp.car_status}
+                        </span>
+                      )}
+                      {sheetProp?.condicao_produtor && (
+                        <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#555' }}>
+                          {sheetProp.condicao_produtor}
+                        </span>
+                      )}
+                      {sheetProp?.area_declarada_ha && (
+                        <span style={{ fontSize: 11, color: '#888' }}>{sheetProp.area_declarada_ha} ha</span>
+                      )}
+                    </div>
+                  </div>
+                  <button onClick={() => setSheetPropId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888', padding: '4px', lineHeight: 1 }}>×</button>
+                </div>
+              )}
+            </div>
+
+            {/* Tab bar inside sheet (only for existing properties) */}
+            {sheetPropId !== '__new__' && (
+              <div style={{ display: 'flex', borderBottom: '1px solid #ebe9e5', flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none' as const }}>
+                {(['Dados', 'Talhões', 'Benfeitorias', 'Uso do Solo', 'Solo', 'Imagens'] as PropSheetTab[]).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setPropSheetTab(t); setPropSubTab(sheetTabToSubTab[t]) }}
+                    style={{
+                      flexShrink: 0,
+                      padding: '10px 18px',
+                      border: 'none',
+                      borderBottom: propSheetTab === t ? '2.5px solid #B95B37' : '2.5px solid transparent',
+                      marginBottom: -1,
+                      background: 'none',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      fontWeight: propSheetTab === t ? 700 : 500,
+                      color: propSheetTab === t ? '#1e1c1a' : '#999',
+                      whiteSpace: 'nowrap' as const,
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', background: '#f9f8f6' }}>
+              {sheetPropId === '__new__' ? (
+                /* New property form */
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                    {([
+                      { key: 'nirf', label: 'NIRF', placeholder: '0000000-0' },
+                      { key: 'nome', label: 'Nome da propriedade', placeholder: 'Fazenda São João' },
+                      { key: 'condicao_produtor', label: 'Condição do produtor', isSelect: true },
+                      { key: 'atividade_principal', label: 'Atividade principal', isSelect: true },
+                      { key: 'caf_dap', label: 'CAF / DAP', placeholder: 'Número CAF…' },
+                    ] as { key: keyof typeof propForm; label: string; placeholder?: string; isSelect?: boolean }[]).map(({ key, label, placeholder, isSelect }) => (
+                      <div key={key}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#878C91', letterSpacing: '0.5px', marginBottom: '6px', textTransform: 'uppercase' }}>{label}</div>
+                        {isSelect ? (
+                          <select className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                            value={propForm[key] as string} onChange={e => setPropForm(p => ({ ...p, [key]: e.target.value }))}>
+                            <option value="">Selecionar…</option>
+                            {key === 'condicao_produtor'
+                              ? ['Proprietário', 'Arrendatário', 'Posseiro', 'Parceiro / Meeiro', 'Comodatário'].map(o => <option key={o} value={o}>{o}</option>)
+                              : ['Agricultura — lavoura temporária', 'Agricultura — lavoura permanente', 'Pecuária bovina', 'Suinocultura', 'Avicultura', 'Aquicultura', 'Silvicultura / SAF'].map(o => <option key={o} value={o}>{o}</option>)
+                            }
+                          </select>
+                        ) : (
+                          <input className="input-field" style={{ width: '100%', boxSizing: 'border-box' }}
+                            value={propForm[key] as string}
+                            onChange={e => setPropForm(p => ({ ...p, [key]: key === 'nirf' ? maskNIRF(e.target.value) : e.target.value }))}
+                            placeholder={placeholder} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {propError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', marginBottom: '16px' }}>{propError}</div>}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={async () => { await handlePropSave(); setSheetPropId(null) }} disabled={propSaving} className="btn-primary" style={{ opacity: propSaving ? 0.7 : 1 }}>
+                      {propSaving ? 'Salvando…' : 'Adicionar imóvel'}
+                    </button>
+                    <button onClick={() => { setSheetPropId(null); setPropForm(EMPTY_PROP) }}
+                      style={{ padding: '9px 18px', border: '1.5px solid var(--color-border)', borderRadius: '8px', background: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#010205' }}>
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : subDataLoading ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#878C91', fontSize: '13px' }}>Carregando…</div>
+              ) : (
               <>
                 {/* ── Dados ── */}
                 {propSubTab === 'dados' && (
@@ -1147,9 +1256,10 @@ export default function ImoveisSection({ clientId, organizationId, onPropertyCou
                   </div>
                 )}
               </>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Benfeitoria drawer */}
